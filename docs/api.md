@@ -79,6 +79,8 @@ ETHERCAT_ROS_NAMESPACE_END
 
 For existing implementations refer to the files `src/Maxon.cpp` and `src/Nanotec.cpp` in conjunction with their respective SDKs. Links to the SDK repositories can be found in the main readme file for this package.
 
+For Maxon, the ROS bridge subscribes to both `/<namespace>/<device_name>/command` (`MotorCtrlMessage`) and `/<namespace>/<device_name>/home_command` (`MotorHomeMessage`). The worker loop routes commands by `operationMode`: CSP/CSV/CST modes use `MotorCtrlMessage`, while homing mode (`6`) uses `MotorHomeMessage`. The ROS configurator can only forward fields that exist in the Maxon SDK command API; if any homing parameter is missing, extend `maxon_epos_ethercat_sdk` first.
+
 Note that the registration name of the class also becomes the name by which it will be created through the `setup.yaml` file. So if one wanted to add a XYZ Motor Controller to the array of their EtherCAT devices they'll add the following block to their `setup.yaml` file's `ethercat_devices` section:
 ```yaml
   - type:               XYZ # Same as the class registration name.

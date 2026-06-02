@@ -31,6 +31,7 @@
 #include <ethercat_sdk_master/EthercatMaster.hpp>
 
 #include <ethercat_motor_msgs/MotorCtrlMessage.h>
+#include <ethercat_motor_msgs/MotorHomeMessage.h>
 #include <ethercat_motor_msgs/MotorStatusMessage.h>
 
 #include <ros/ros.h>
@@ -39,6 +40,7 @@
 #include <csignal>
 #include <chrono>
 #include <mutex>
+#include <atomic>
 
 #define ETHERCAT_ROS_NAMESPACE_BEGIN namespace EthercatRos {
 #define ETHERCAT_ROS_NAMESPACE_END }
@@ -138,16 +140,24 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
             command_sub_ptr_ = std::make_unique<ros::Subscriber>(
                 nh_ptr_->subscribe<ethercat_motor_msgs::MotorCtrlMessage>(device_info.name + "/command", 1000, &EthercatDeviceRos::commandCallback, this)
                 );
+
+            home_command_sub_ptr_ = std::make_unique<ros::Subscriber>(
+                nh_ptr_->subscribe<ethercat_motor_msgs::MotorHomeMessage>(device_info.name + "/home_command", 1000, &EthercatDeviceRos::homeCommandCallback, this)
+                );
             
             reading_pub_ptr_ = std::make_unique<ros::Publisher>(
                 nh_ptr_->advertise<ethercat_motor_msgs::MotorStatusMessage>(device_info.name + "/reading", 1000)
                 );
             
             last_command_msg_ptr_ = std::make_unique<ethercat_motor_msgs::MotorCtrlMessage>();
+            last_home_command_msg_ptr_ = std::make_unique<ethercat_motor_msgs::MotorHomeMessage>();
             command_msg_mutex_ptr_ = std::make_unique<std::recursive_mutex>();
+            home_command_msg_mutex_ptr_ = std::make_unique<std::recursive_mutex>();
 
             // set initial mode of operation
             last_command_msg_ptr_->operationMode = device_info.initial_mode_of_operation;
+            latest_operation_mode_.store(device_info.initial_mode_of_operation);
+            home_command_received_.store(false);
 
             device_enabled_ = true;
 
@@ -161,12 +171,17 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
             device_info_ = std::move(other.device_info_);
             nh_ptr_ = std::move(other.nh_ptr_);
             command_sub_ptr_ = std::move(other.command_sub_ptr_);
+            home_command_sub_ptr_ = std::move(other.home_command_sub_ptr_);
             reading_pub_ptr_ = std::move(other.reading_pub_ptr_);
             last_command_msg_ptr_ = std::move(other.last_command_msg_ptr_);
+            last_home_command_msg_ptr_ = std::move(other.last_home_command_msg_ptr_);
             command_msg_mutex_ptr_ = std::move(other.command_msg_mutex_ptr_);
+            home_command_msg_mutex_ptr_ = std::move(other.home_command_msg_mutex_ptr_);
             worker_thread_ptr_ = std::move(other.worker_thread_ptr_);
             device_enabled_ = other.device_enabled_;
             abrt = other.abrt;
+            latest_operation_mode_.store(other.latest_operation_mode_.load());
+            home_command_received_.store(other.home_command_received_.load());
             other.device_ptr_ = nullptr;
             other.device_info_ = EthercatSlaveEntry(); // not needed because trivial type
         }
@@ -180,12 +195,17 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
             device_info_ = std::move(other.device_info_);
             nh_ptr_ = std::move(other.nh_ptr_);
             command_sub_ptr_ = std::move(other.command_sub_ptr_);
+            home_command_sub_ptr_ = std::move(other.home_command_sub_ptr_);
             reading_pub_ptr_ = std::move(other.reading_pub_ptr_);
             last_command_msg_ptr_ = std::move(other.last_command_msg_ptr_);
+            last_home_command_msg_ptr_ = std::move(other.last_home_command_msg_ptr_);
             command_msg_mutex_ptr_ = std::move(other.command_msg_mutex_ptr_);
+            home_command_msg_mutex_ptr_ = std::move(other.home_command_msg_mutex_ptr_);
             worker_thread_ptr_ = std::move(other.worker_thread_ptr_);
             device_enabled_ = other.device_enabled_;
             abrt = other.abrt;
+            latest_operation_mode_.store(other.latest_operation_mode_.load());
+            home_command_received_.store(other.home_command_received_.load());
             other.device_ptr_ = nullptr;
             other.device_info_ = EthercatSlaveEntry();
             return *this;
@@ -280,6 +300,27 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
             last_command_msg_ptr_->profileAcceleration = msg->profileAcceleration;
             last_command_msg_ptr_->profileDeceleration = msg->profileDeceleration;
             last_command_msg_ptr_->operationMode = msg->operationMode;
+            latest_operation_mode_.store(msg->operationMode);
+        }
+
+        void homeCommandCallback(const ethercat_motor_msgs::MotorHomeMessage::ConstPtr& msg) {
+            std::lock_guard<std::recursive_mutex> lock(*home_command_msg_mutex_ptr_);
+            last_home_command_msg_ptr_->header.stamp = msg->header.stamp;
+            last_home_command_msg_ptr_->header.frame_id = msg->header.frame_id;
+            last_home_command_msg_ptr_->header.seq = msg->header.seq;
+            last_home_command_msg_ptr_->version = msg->version;
+            last_home_command_msg_ptr_->timestamp = msg->timestamp;
+            last_home_command_msg_ptr_->controlWord = msg->controlWord;
+            last_home_command_msg_ptr_->homingMethod = msg->homingMethod;
+            last_home_command_msg_ptr_->switchSearchSpeed = msg->switchSearchSpeed;
+            last_home_command_msg_ptr_->zeroSearchSpeed = msg->zeroSearchSpeed;
+            last_home_command_msg_ptr_->homingAcceleration = msg->homingAcceleration;
+            last_home_command_msg_ptr_->homeOffsetMoveDistance = msg->homeOffsetMoveDistance;
+            last_home_command_msg_ptr_->homePosition = msg->homePosition;
+            last_home_command_msg_ptr_->currentThreshold = msg->currentThreshold;
+            last_home_command_msg_ptr_->operationMode = msg->operationMode;
+            latest_operation_mode_.store(msg->operationMode);
+            home_command_received_.store(true);
         }
     
         std::shared_ptr<DeviceClass> device_ptr_; // Shared pointer to slave.
@@ -287,12 +328,17 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
         std::shared_ptr<ros::NodeHandle> nh_ptr_; // A shared pointer to node handle for pubs and subs
         EthercatSlaveEntry device_info_; // Slave info
         std::unique_ptr<ros::Subscriber> command_sub_ptr_; // A unique pointer to command subscriber
+        std::unique_ptr<ros::Subscriber> home_command_sub_ptr_; // A unique pointer to homing command subscriber
         std::unique_ptr<ros::Publisher> reading_pub_ptr_; // A unique pointer to reading publisher
         std::unique_ptr<ethercat_motor_msgs::MotorCtrlMessage> last_command_msg_ptr_; // A unique pointer to latest command message received
+        std::unique_ptr<ethercat_motor_msgs::MotorHomeMessage> last_home_command_msg_ptr_; // A unique pointer to latest homing message received
         std::unique_ptr<std::recursive_mutex> command_msg_mutex_ptr_; // A unique pointer to mutex for command message callback rw locks.
+        std::unique_ptr<std::recursive_mutex> home_command_msg_mutex_ptr_; // A unique pointer to mutex for homing command callback rw locks.
         ethercat_motor_msgs::MotorStatusMessage reading_msg_; // make this a pointer too?
         bool device_enabled_ = false;
         volatile std::atomic<bool> abrt = false;
+        std::atomic<int8_t> latest_operation_mode_;
+        std::atomic<bool> home_command_received_;
         bool worker_loop_running_ = false;
 
         // NOTE: One can also make the command message an atomic type since all the ROS msg fields are

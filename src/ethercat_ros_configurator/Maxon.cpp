@@ -30,6 +30,7 @@
 
 #include <ethercat_ros_configurator/EthercatDeviceRos.hpp>
 #include <maxon_epos_ethercat_sdk/Maxon.hpp>
+#include <type_traits>
 
 ETHERCAT_ROS_NAMESPACE_BEGIN
 
@@ -59,9 +60,124 @@ class MaxonUtils{
         }
 };
 
+class MaxonHomingCommandMapper{
+    public:
+        template<typename CommandType, typename = void>
+        struct HasSetControlwordLowercase : std::false_type {};
+        template<typename CommandType>
+        struct HasSetControlwordLowercase<CommandType, std::void_t<decltype(std::declval<CommandType&>().setControlword(uint16_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetControlWordUppercase : std::false_type {};
+        template<typename CommandType>
+        struct HasSetControlWordUppercase<CommandType, std::void_t<decltype(std::declval<CommandType&>().setControlWord(uint16_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetHomingMethod : std::false_type {};
+        template<typename CommandType>
+        struct HasSetHomingMethod<CommandType, std::void_t<decltype(std::declval<CommandType&>().setHomingMethod(int8_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetSwitchSearchSpeed : std::false_type {};
+        template<typename CommandType>
+        struct HasSetSwitchSearchSpeed<CommandType, std::void_t<decltype(std::declval<CommandType&>().setSwitchSearchSpeed(uint32_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetHomingSwitchSearchSpeed : std::false_type {};
+        template<typename CommandType>
+        struct HasSetHomingSwitchSearchSpeed<CommandType, std::void_t<decltype(std::declval<CommandType&>().setHomingSwitchSearchSpeed(uint32_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetZeroSearchSpeed : std::false_type {};
+        template<typename CommandType>
+        struct HasSetZeroSearchSpeed<CommandType, std::void_t<decltype(std::declval<CommandType&>().setZeroSearchSpeed(uint32_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetHomingZeroSearchSpeed : std::false_type {};
+        template<typename CommandType>
+        struct HasSetHomingZeroSearchSpeed<CommandType, std::void_t<decltype(std::declval<CommandType&>().setHomingZeroSearchSpeed(uint32_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetHomingAcceleration : std::false_type {};
+        template<typename CommandType>
+        struct HasSetHomingAcceleration<CommandType, std::void_t<decltype(std::declval<CommandType&>().setHomingAcceleration(uint32_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetHomeOffsetMoveDistance : std::false_type {};
+        template<typename CommandType>
+        struct HasSetHomeOffsetMoveDistance<CommandType, std::void_t<decltype(std::declval<CommandType&>().setHomeOffsetMoveDistance(int32_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetHomeOffset : std::false_type {};
+        template<typename CommandType>
+        struct HasSetHomeOffset<CommandType, std::void_t<decltype(std::declval<CommandType&>().setHomeOffset(int32_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetHomePosition : std::false_type {};
+        template<typename CommandType>
+        struct HasSetHomePosition<CommandType, std::void_t<decltype(std::declval<CommandType&>().setHomePosition(int32_t{}))>> : std::true_type {};
+
+        template<typename CommandType, typename = void>
+        struct HasSetCurrentThreshold : std::false_type {};
+        template<typename CommandType>
+        struct HasSetCurrentThreshold<CommandType, std::void_t<decltype(std::declval<CommandType&>().setCurrentThreshold(uint16_t{}))>> : std::true_type {};
+
+        template<typename CommandType>
+        static void apply(const ethercat_motor_msgs::MotorHomeMessage& home_msg, CommandType& cmd){
+            static_assert(!(HasSetControlwordLowercase<CommandType>::value && HasSetControlWordUppercase<CommandType>::value),
+                          "CommandType provides both setControlword and setControlWord; keep only one.");
+            if constexpr (HasSetControlwordLowercase<CommandType>::value){
+                cmd.setControlword(home_msg.controlWord);
+            }
+            else if constexpr (HasSetControlWordUppercase<CommandType>::value){
+                cmd.setControlWord(home_msg.controlWord);
+            }
+
+            if constexpr (HasSetHomingMethod<CommandType>::value){
+                cmd.setHomingMethod(home_msg.homingMethod);
+            }
+
+            if constexpr (HasSetSwitchSearchSpeed<CommandType>::value){
+                cmd.setSwitchSearchSpeed(home_msg.switchSearchSpeed);
+            }
+            else if constexpr (HasSetHomingSwitchSearchSpeed<CommandType>::value){
+                cmd.setHomingSwitchSearchSpeed(home_msg.switchSearchSpeed);
+            }
+
+            if constexpr (HasSetZeroSearchSpeed<CommandType>::value){
+                cmd.setZeroSearchSpeed(home_msg.zeroSearchSpeed);
+            }
+            else if constexpr (HasSetHomingZeroSearchSpeed<CommandType>::value){
+                cmd.setHomingZeroSearchSpeed(home_msg.zeroSearchSpeed);
+            }
+
+            if constexpr (HasSetHomingAcceleration<CommandType>::value){
+                cmd.setHomingAcceleration(home_msg.homingAcceleration);
+            }
+
+            if constexpr (HasSetHomeOffsetMoveDistance<CommandType>::value){
+                cmd.setHomeOffsetMoveDistance(home_msg.homeOffsetMoveDistance);
+            }
+            else if constexpr (HasSetHomeOffset<CommandType>::value){
+                cmd.setHomeOffset(home_msg.homeOffsetMoveDistance);
+            }
+
+            if constexpr (HasSetHomePosition<CommandType>::value){
+                cmd.setHomePosition(home_msg.homePosition);
+            }
+
+            if constexpr (HasSetCurrentThreshold<CommandType>::value){
+                cmd.setCurrentThreshold(home_msg.currentThreshold);
+            }
+        }
+};
+
+constexpr int8_t HOMING_OPERATION_MODE = 6;
+
 template <>
 void EthercatDeviceRos<maxon::Maxon>::worker(){
     ROS_INFO_STREAM("Maxon '" << device_ptr_->getName() << "': Worker thread started.");
+    const std::string home_command_topic = nh_ptr_->getNamespace() + "/" + device_ptr_->getName() + "/home_command";
     ros::Rate loop_rate(device_info_.thread_frequency);
     worker_loop_running_ = true;
     std::unique_lock<std::recursive_mutex> lock(*command_msg_mutex_ptr_);
@@ -111,15 +227,29 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
                 // optimizations should reduce it a bit.
 
                 maxon::Command cmd;
-                cmd.setModeOfOperation(MaxonUtils::getModeOfOperation(last_command_msg_ptr_->operationMode));
-                lock.lock();
-                cmd.setTargetPositionRaw(last_command_msg_ptr_->targetPosition);
-                cmd.setTargetVelocityRaw(last_command_msg_ptr_->targetVelocity);
-                cmd.setTargetTorqueRaw(last_command_msg_ptr_->targetTorque);
-                cmd.setPositionOffsetRaw(last_command_msg_ptr_->positionOffset);
-                cmd.setTorqueOffsetRaw(last_command_msg_ptr_->torqueOffset);
-                cmd.setVelocityOffsetRaw(last_command_msg_ptr_->velocityOffset);
-                lock.unlock();
+                const int8_t operation_mode = latest_operation_mode_.load();
+                cmd.setModeOfOperation(MaxonUtils::getModeOfOperation(operation_mode));
+                if(operation_mode == HOMING_OPERATION_MODE){
+                    if(home_command_received_.load()){
+                        std::lock_guard<std::recursive_mutex> home_command_lock(*home_command_msg_mutex_ptr_);
+                        MaxonHomingCommandMapper::apply(*last_home_command_msg_ptr_, cmd);
+                    }
+                    else{
+                        ROS_WARN_STREAM_THROTTLE(1.0, "Maxon '" << device_ptr_->getName() << "': homing mode active but no /home_command received yet. Publish MotorHomeMessage on " << home_command_topic << ".");
+                        loop_rate.sleep();
+                        continue;
+                    }
+                }
+                else{
+                    lock.lock();
+                    cmd.setTargetPositionRaw(last_command_msg_ptr_->targetPosition);
+                    cmd.setTargetVelocityRaw(last_command_msg_ptr_->targetVelocity);
+                    cmd.setTargetTorqueRaw(last_command_msg_ptr_->targetTorque);
+                    cmd.setPositionOffsetRaw(last_command_msg_ptr_->positionOffset);
+                    cmd.setTorqueOffsetRaw(last_command_msg_ptr_->torqueOffset);
+                    cmd.setVelocityOffsetRaw(last_command_msg_ptr_->velocityOffset);
+                    lock.unlock();
+                }
                 device_ptr_->stageCommand(cmd);
 
                 device_enabled_ = true;
