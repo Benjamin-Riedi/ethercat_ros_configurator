@@ -256,7 +256,7 @@ At the time of writing, the package is only configured for motor controllers. Th
 - `/<ethercat_master_ros_namespace>/<device_name>/home_command`: The homing command topic. For Maxon homing mode, this package subscribes to `ethercat_motor_msgs::MotorHomeMessage` on this topic and uses it when `operationMode` is set to Homing (6).
 - `/<ethercat_master_ros_namespace>/<device_name>/reading`: The feedback topic for the device. The feedback topic is used to receive feedback from the device. The message type for the feedback topic is specific to the device and should be documented in the respective device SDK's documentation. For the currently supported motor controllers, it is `ethercat_motor_msgs::MotorStatusMessage`. The device class updates the feedback data to this topic at the frequency specified in the `thread_frequency` parameter in the `ethercat_devices` section of the setup file.
 
-For Maxon homing mode, note that this package only maps ROS messages to the Maxon SDK `Command` API. If a homing field from `MotorHomeMessage` is not available in your current `maxon_epos_ethercat_sdk::Command` implementation, add it in the SDK first (`Command.hpp/.cpp`, PDO mapping/configuration, and parser/config code) and rebuild the workspace.
+For Maxon homing mode, note that this package only maps ROS messages to the Maxon SDK `Command` API. If a homing field from `MotorHomeMessage` is not available in your current `maxon_epos_ethercat_sdk::Command` implementation, add it in the SDK first (`Command.hpp/.cpp`, PDO mapping/configuration, and parser/config code in `maxon_epos_ethercat_sdk`) and rebuild the workspace.
 
 ## Wiring The EtherCAT Network
 

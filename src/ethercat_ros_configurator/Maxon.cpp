@@ -230,11 +230,11 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
                 cmd.setModeOfOperation(MaxonUtils::getModeOfOperation(operation_mode));
                 if(operation_mode == HOMING_OPERATION_MODE){
                     if(home_command_received_.load()){
-                        std::lock_guard<std::recursive_mutex> home_lock(*home_command_msg_mutex_ptr_);
+                        std::lock_guard<std::recursive_mutex> home_command_lock(*home_command_msg_mutex_ptr_);
                         MaxonHomingCommandMapper::apply(*last_home_command_msg_ptr_, cmd);
                     }
                     else{
-                        ROS_WARN_STREAM_THROTTLE(1.0, "Maxon '" << device_ptr_->getName() << "': homing mode active but no /home_command received yet.");
+                        ROS_WARN_STREAM_THROTTLE(1.0, "Maxon '" << device_ptr_->getName() << "': homing mode active but no /home_command received yet. Publish MotorHomeMessage on /<namespace>/" << device_ptr_->getName() << "/home_command.");
                         loop_rate.sleep();
                         continue;
                     }

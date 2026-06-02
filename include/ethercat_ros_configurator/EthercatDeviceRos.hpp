@@ -156,7 +156,6 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
 
             // set initial mode of operation
             last_command_msg_ptr_->operationMode = device_info.initial_mode_of_operation;
-            last_home_command_msg_ptr_->operationMode = device_info.initial_mode_of_operation;
             latest_operation_mode_.store(device_info.initial_mode_of_operation);
 
             device_enabled_ = true;
