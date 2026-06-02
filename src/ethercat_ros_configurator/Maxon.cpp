@@ -124,6 +124,8 @@ class MaxonHomingCommandMapper{
 
         template<typename CommandType>
         static void apply(const ethercat_motor_msgs::MotorHomeMessage& home_msg, CommandType& cmd){
+            static_assert(!(HasSetControlword<CommandType>::value && HasSetControlWord<CommandType>::value),
+                          "CommandType provides both setControlword and setControlWord; keep only one.");
             if constexpr (HasSetControlword<CommandType>::value){
                 cmd.setControlword(home_msg.controlWord);
             }
@@ -169,6 +171,8 @@ class MaxonHomingCommandMapper{
             }
         }
 };
+
+constexpr int8_t HOMING_OPERATION_MODE = 6;
 
 template <>
 void EthercatDeviceRos<maxon::Maxon>::worker(){
@@ -224,7 +228,7 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
                 maxon::Command cmd;
                 const int8_t operation_mode = latest_operation_mode_.load();
                 cmd.setModeOfOperation(MaxonUtils::getModeOfOperation(operation_mode));
-                if(operation_mode == 6){
+                if(operation_mode == HOMING_OPERATION_MODE){
                     if(home_command_received_.load()){
                         std::lock_guard<std::recursive_mutex> home_lock(*home_command_msg_mutex_ptr_);
                         MaxonHomingCommandMapper::apply(*last_home_command_msg_ptr_, cmd);
