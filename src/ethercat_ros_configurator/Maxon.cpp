@@ -63,14 +63,14 @@ class MaxonUtils{
 class MaxonHomingCommandMapper{
     public:
         template<typename CommandType, typename = void>
-        struct HasSetControlword : std::false_type {};
+        struct HasSetControlwordLowercase : std::false_type {};
         template<typename CommandType>
-        struct HasSetControlword<CommandType, std::void_t<decltype(std::declval<CommandType&>().setControlword(uint16_t{}))>> : std::true_type {};
+        struct HasSetControlwordLowercase<CommandType, std::void_t<decltype(std::declval<CommandType&>().setControlword(uint16_t{}))>> : std::true_type {};
 
         template<typename CommandType, typename = void>
-        struct HasSetControlWord : std::false_type {};
+        struct HasSetControlWordUppercase : std::false_type {};
         template<typename CommandType>
-        struct HasSetControlWord<CommandType, std::void_t<decltype(std::declval<CommandType&>().setControlWord(uint16_t{}))>> : std::true_type {};
+        struct HasSetControlWordUppercase<CommandType, std::void_t<decltype(std::declval<CommandType&>().setControlWord(uint16_t{}))>> : std::true_type {};
 
         template<typename CommandType, typename = void>
         struct HasSetHomingMethod : std::false_type {};
@@ -124,12 +124,12 @@ class MaxonHomingCommandMapper{
 
         template<typename CommandType>
         static void apply(const ethercat_motor_msgs::MotorHomeMessage& home_msg, CommandType& cmd){
-            static_assert(!(HasSetControlword<CommandType>::value && HasSetControlWord<CommandType>::value),
+            static_assert(!(HasSetControlwordLowercase<CommandType>::value && HasSetControlWordUppercase<CommandType>::value),
                           "CommandType provides both setControlword and setControlWord; keep only one.");
-            if constexpr (HasSetControlword<CommandType>::value){
+            if constexpr (HasSetControlwordLowercase<CommandType>::value){
                 cmd.setControlword(home_msg.controlWord);
             }
-            else if constexpr (HasSetControlWord<CommandType>::value){
+            else if constexpr (HasSetControlWordUppercase<CommandType>::value){
                 cmd.setControlWord(home_msg.controlWord);
             }
 
@@ -177,6 +177,7 @@ constexpr int8_t HOMING_OPERATION_MODE = 6;
 template <>
 void EthercatDeviceRos<maxon::Maxon>::worker(){
     ROS_INFO_STREAM("Maxon '" << device_ptr_->getName() << "': Worker thread started.");
+    const std::string home_command_topic = nh_ptr_->getNamespace() + "/" + device_ptr_->getName() + "/home_command";
     ros::Rate loop_rate(device_info_.thread_frequency);
     worker_loop_running_ = true;
     std::unique_lock<std::recursive_mutex> lock(*command_msg_mutex_ptr_);
@@ -234,7 +235,7 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
                         MaxonHomingCommandMapper::apply(*last_home_command_msg_ptr_, cmd);
                     }
                     else{
-                        ROS_WARN_STREAM_THROTTLE(1.0, "Maxon '" << device_ptr_->getName() << "': homing mode active but no /home_command received yet. Publish MotorHomeMessage on /<namespace>/" << device_ptr_->getName() << "/home_command.");
+                        ROS_WARN_STREAM_THROTTLE(1.0, "Maxon '" << device_ptr_->getName() << "': homing mode active but no /home_command received yet. Publish MotorHomeMessage on " << home_command_topic << ".");
                         loop_rate.sleep();
                         continue;
                     }

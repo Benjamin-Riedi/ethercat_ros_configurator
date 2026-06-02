@@ -157,6 +157,7 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
             // set initial mode of operation
             last_command_msg_ptr_->operationMode = device_info.initial_mode_of_operation;
             latest_operation_mode_.store(device_info.initial_mode_of_operation);
+            home_command_received_.store(false);
 
             device_enabled_ = true;
 
@@ -336,8 +337,8 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
         ethercat_motor_msgs::MotorStatusMessage reading_msg_; // make this a pointer too?
         bool device_enabled_ = false;
         volatile std::atomic<bool> abrt = false;
-        std::atomic<int8_t> latest_operation_mode_ = 0;
-        std::atomic<bool> home_command_received_ = false;
+        std::atomic<int8_t> latest_operation_mode_;
+        std::atomic<bool> home_command_received_;
         bool worker_loop_running_ = false;
 
         // NOTE: One can also make the command message an atomic type since all the ROS msg fields are
