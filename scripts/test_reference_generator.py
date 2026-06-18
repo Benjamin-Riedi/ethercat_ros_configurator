@@ -42,7 +42,6 @@ import threading
 import datetime
 import pickle
 import numpy as np
-import scipy.signal as signal
 import matplotlib.pyplot as plt
 import os
 
@@ -73,6 +72,7 @@ class TestReferenceGenerator:
         self.plot_dpi = rospy.get_param('~plot_dpi', 300)
         self.save_data = rospy.get_param('~save_data', False)
         self.save_path = rospy.get_param('~save_data_path') + "/"
+        self.op_mode = rospy.get_param('~op_mode', MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION)
         self.command_pub = rospy.Publisher(self.command_topic, MotorCtrlMessage, queue_size=10)
         self.status_sub = rospy.Subscriber(self.status_topic, MotorStatusMessage, self.status_callback)
         self.command_msg = MotorCtrlMessage()
@@ -96,15 +96,19 @@ class TestReferenceGenerator:
         self._current_sample = np.clip(self._current_sample, self.amplitude_limit_min, self.amplitude_limit_max)
 
     def _square_wave(self, t):
-        self._current_sample = self.amplitude*signal.square(2.0*np.pi*self.frequency*t + self.phase_shift, 0.5) + self.offset
+        phase = 2.0*np.pi*self.frequency*t + self.phase_shift
+        self._current_sample = self.amplitude*np.where(np.sin(phase) >= 0.0, 1.0, -1.0) + self.offset
         self._current_sample = np.clip(self._current_sample, self.amplitude_limit_min, self.amplitude_limit_max)
     
     def _triangle_wave(self, t):
-        self._current_sample = self.amplitude*signal.sawtooth(2.0*np.pi*self.frequency*t + self.phase_shift, 0.5) + self.offset
+        phase = 2.0*np.pi*self.frequency*t + self.phase_shift
+        self._current_sample = self.amplitude*(2.0/np.pi)*np.arcsin(np.sin(phase)) + self.offset
         self._current_sample = np.clip(self._current_sample, self.amplitude_limit_min, self.amplitude_limit_max)
 
     def _sawtooth_wave(self, t):
-        self._current_sample = self.amplitude*signal.sawtooth(2.0*np.pi*self.frequency*t + self.phase_shift, 1.0) + self.offset
+        phase = 2.0*np.pi*self.frequency*t + self.phase_shift
+        normalized_phase = np.mod(phase, 2.0*np.pi)
+        self._current_sample = self.amplitude*(normalized_phase / np.pi - 1.0) + self.offset
         self._current_sample = np.clip(self._current_sample, self.amplitude_limit_min, self.amplitude_limit_max)
         
     def _smoothstep(self, t):
@@ -116,6 +120,13 @@ class TestReferenceGenerator:
         self._current_sample = self.amplitude*(g3*t_nrm**3 + g4*t_nrm**4 + g5*t_nrm**5) + self.offset
         self.signal_vec[self._sample_number] = self._current_sample
         self._sample_number += 1
+
+    def custom_signal(self, t):
+        # step function with a ramp up and down. floor t to nearest integer to get the step function
+        step = np.floor(t)
+        self._current_sample = self.amplitude*(step + 1.0) + self.offset
+        self._current_sample = np.clip(self._current_sample, self.amplitude_limit_min, self.amplitude_limit_max)
+
     
     def _mount_signal_generator(self):
         if self.signal == 'sine':
@@ -128,21 +139,42 @@ class TestReferenceGenerator:
             self._current_signal_generator = self._sawtooth_wave
         elif self.signal == 'smoothstep':
             self._current_signal_generator = self._smoothstep
+        elif self.signal == 'custom':
+            self._current_signal_generator = self.custom_signal
         else:
             rospy.logerr('Signal type not supported')
             raise ValueError('Signal type not supported')
     
     def _update_command_msg(self):
         # TODO: Add support for velocity and torque
+        if self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION:
+            self.command_msg.targetPosition = int(self._current_sample)
+        elif self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_VELOCITY:
+            self.command_msg.targetVelocity = int(self._current_sample)
+        elif self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_TORQUE:
+            self.command_msg.targetTorque = int(self._current_sample)
         self.command_msg.header.stamp = rospy.Time.now()
-        self.command_msg.targetPosition = int(self._current_sample)
-        self.command_msg.operationMode = MotorCtrlMessage.NANOTEC_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION
+        # self.command_msg.targetPosition = int(self._current_sample)
+        self.command_msg.operationMode = self.op_mode
+
+        # NANOTEC_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION
         # Same as MotorCtrlMessage.MAXON_EPSO4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION
 
     def publish_command_thread(self):
         rate = rospy.Rate(self.sample_rate)
+
+        home_msg = MotorCtrlMessage()
+        home_msg.targetPosition = 0
+        home_msg.targetVelocity = 0
+        home_msg.targetTorque = 0
+        home_msg.operationMode = self.op_mode
+        
+        self.command_pub.publish(home_msg)
+        rospy.sleep(0.5)
+        
         t_start = time.time()
         self.publishing_on = True
+        
         while not rospy.is_shutdown():
             self._current_time = time.time() - t_start
             self._current_signal_generator(self._current_time)
@@ -159,7 +191,12 @@ class TestReferenceGenerator:
             self._update_command_msg()
             self.command_pub.publish(self.command_msg)
             rate.sleep()
-        
+
+        self.publishing_on = False
+
+        if not thread_abort:
+            self.command_pub.publish(home_msg)
+
         # Plot if required
         print("Final sampling time: ", self._current_time)
         print("Final sampling number: ", self._sample_number)
@@ -172,7 +209,7 @@ class TestReferenceGenerator:
         if self.plot:
             self.plot_data()
         
-        self.publishing_on = False
+        
         
     def status_callback(self, msg):
         if not self.publishing_on:
@@ -180,7 +217,13 @@ class TestReferenceGenerator:
         if self._current_reading_number == 0:
             self._initial_reading_time = time.time()
         self._current_reading_time = time.time() - self._initial_reading_time
-        self._reading_vec.append(msg.actualPosition)
+        if self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION:
+            self._reading_vec.append(msg.actualPosition)
+        elif self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_VELOCITY:
+            self._reading_vec.append(msg.actualVelocity)
+        elif self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_TORQUE:
+            self._reading_vec.append(msg.actualTorque)
+        # self._reading_vec.append(msg.actualPosition)
         self._reading_times.append(self._current_reading_time)
         self._current_reading_number += 1
     
@@ -224,17 +267,24 @@ class TestReferenceGenerator:
         print(f"Data saved to {filename}")
     
     def plot_data(self):
+        mode_str = ""
+        if self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION:
+            mode_str = "Position"
+        elif self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_VELOCITY:
+            mode_str = "Velocity"
+        elif self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_TORQUE:
+            mode_str = "Torque"
         plt.figure()
         reading_times = np.array(self._reading_times)
         reading_vec = np.array(self._reading_vec)
-        plt.title(f"{self.signal}, f={self.frequency}, A={self.amplitude}, fs={self.sample_rate}, offset={self.offset}, phase={self.phase_shift}, duration={self.duration} \
+        plt.title(f"{self.signal} in Cyclic Synchronous {mode_str} mode, f={self.frequency}, A={self.amplitude}, fs={self.sample_rate}, offset={self.offset}, phase={self.phase_shift}, duration={self.duration} \
                   \n amplitude limit: [{self.amplitude_limit_min}, {self.amplitude_limit_max}] \
                   \n command topic: {self.command_topic}")
         plt.suptitle('Reference Generator Test')
         plt.plot(self.time_vec, self.signal_vec, label='Command')
-        plt.plot(reading_times, reading_vec, label='Reading')
+        plt.plot(reading_times, reading_vec, label=f'Reading ({mode_str})')
         plt.xlabel('Time [s]')
-        plt.ylabel('Position [motor controller units]')
+        plt.ylabel(f'{mode_str} [motor controller units]')
         plt.legend()
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         fig = plt.gcf()

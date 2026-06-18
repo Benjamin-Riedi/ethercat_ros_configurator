@@ -1,0 +1,73 @@
+Maxon:
+  config_run_sdo_verify_timeout: 50000
+  print_debug_messages: true
+  use_raw_commands: true
+  drive_state_change_min_timeout: 2000
+  drive_state_change_max_timeout: 10000 # microseconds
+  min_number_of_successful_target_state_readings: 5
+  display_error_codes: true
+  disable_configuration_on_startup: false
+  interpolation_time_period_ms: 1 # in ms. "0" disables demand value interpolation.
+  # > 0 enables demand value interpolation. Target Position (and offset), Velocity
+  # (and offset) are written cyclically with the interpolation time period.
+
+Reading:
+  force_append_equal_error: true
+  force_append_equal_fault: false
+  error_storage_capacity: 100
+  fault_storage_capacity: 100
+
+Hardware:
+  mode_of_operation: 
+    # - ProfiledPositionMode
+    - CyclicSynchronousPositionMode
+    - CyclicSynchronousTorqueMode
+    - CyclicSynchronousVelocityMode
+  position_encoder_resolution: 4096 # [counts/rev]
+  gear_ratio: [4761, 169] # Absolute Reduction in Datasheet, should be positive and less than 2^32 - 1
+  motor_constant: 1.0 # Not being used anywhere in SDK from my observation
+  working_voltage: 12 # [V]
+  pole_pairs: 1 # Number of pole pairs
+  speed_constant: 26.3 # [rpm/V]
+  torque_constant: 0.290 # [Nm/A], max value is 10,000,000 !!!Firmware reference manual says [μNm/A]!!!
+  max_current: 1 # [A] set to stall current (45.5) or below?
+  nominal_current: 0.347 # [A]
+  max_gear_input_speed: 12000 # [rpm], check EPOS4 firmware ref. for limits based on motor type
+  min_position: 0
+  max_position: 0 # Disable checks, software position limits, can be b/w -(2^31 - 1) to (2^31 - 1)
+
+  # ------------------- #
+  ## These values are filled frm the EPOS4 firmware reference manual CST section, not sure if they are needed
+  max_motor_speed: 12000 # [rpm], check EPOS4 firmware ref. for limits based on motor type
+  # ------------------- # 
+  
+  # i've changed the calculation in ConfigureParameters.cpp to accept [rpm] instead of [rad/s]
+  max_profile_velocity: 5001 # [rpm], Check EPOS4 firmware ref. can't be larger than max_gear_input_speed or max_motor_speed. gear reduction seems to be ignored
+  quick_stop_decel: 10000 # [rpm/s], max value bounded by max_acceleration (which defaults to 4'294'967'295)
+  profile_decel: 10000 # [rpm/s] , max value bounded by max_acceleration (which defaults to 4'294'967'295)
+  follow_error_window: 200000000 # [inc]
+
+  # current_p_gain: 9.229584 # [V/A]
+  # # firmware wants CI to be [uV/(A*ms)] = [mV/(A*s)], but sdk multiplies config value by 1000 so this value should be in [V/(A*s)] not [mV/(A*s)]
+  # current_i_gain: 118029.636 #17.884582 # [V/(A*s)]
+  # position_p_gain: 0.08774 # [A/rad]
+  # position_i_gain: 0.633933 #32.994732 # [A/(rad*s)]
+  # position_d_gain: 0.000985 #0.021841 # [(A*s)/rad]
+  # velocity_p_gain: 0.004457 # [(A*s)/rad]
+  # velocity_i_gain: 0.130957 # [A/rad]
+
+  # these gains are from epos but with adapted torque constant and nominal current
+  current_p_gain: 9.352054 # [V/A]
+  # firmware wants CI to be [uV/(A*ms)] = [mV/(A*s)], but sdk multiplies config value by 1000 so this value should be in [V/(A*s)] not [mV/(A*s)]
+  current_i_gain: 118720.786 # [V/(A*s)]
+  position_p_gain: 0.104956 # [A/rad]
+  position_i_gain: 0.801156 # [A/(rad*s)]
+  position_d_gain: 0.000815 # [(A*s)/rad]
+  velocity_p_gain: 0.003559 # [(A*s)/rad]
+  velocity_i_gain: 0.210201 # [A/rad]
+
+  # motor_type: 1 # Changes certain value ranges. For eg: max_motor_speed
+  # Allowed values for motor type: (check EPOS4 firmware ref)
+  # 1 : Brushed DC (max_motor_speed limit = 100000)
+  # 10: Brushless DC sine commutated (max_motor_speed limit = 50000/pole_pairs)
+  # 11: Brushless DC block commutated (max_motor_speed limit = 100000/pole_pairs)

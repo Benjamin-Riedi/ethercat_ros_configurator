@@ -4,7 +4,7 @@
         type="ethercat_ros_node" 
         name="ethercat_ros_node" 
         output="screen"
-        args="/home/bob/tesla_ws/src/Tesla/applications/endoscopy/endoscope_advancer/config/ethercat/mca_setup.yaml"        
+        args="/home/msrl/tesla_ws/src/ethercat_ros_configurator/config/setup.yaml"        
         launch-prefix="ethercat_grant">
     </node>
 </launch>
