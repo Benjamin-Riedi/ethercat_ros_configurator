@@ -64,6 +64,7 @@ class TestReferenceGenerator:
         self.amplitude = rospy.get_param('~amplitude', 1.0)
         self.amplitude_limit_min = rospy.get_param('~amplitude_limit_min', -1.0)
         self.amplitude_limit_max = rospy.get_param('~amplitude_limit_max', 1.0)
+        self.position_limit = rospy.get_param('~position_limit', 10000)
         self.offset = rospy.get_param('~offset', 0.0)
         self.phase_shift = rospy.get_param('~phase_shift', 0.0)
         self.duration = rospy.get_param('~duration', 10.0)
@@ -86,6 +87,8 @@ class TestReferenceGenerator:
         self._initial_reading_time = 0.0
         self._reading_vec = []
         self._reading_times = []
+        self.current_position = 0.0
+        self.start_position = None
         self._data_prefix = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.publishing_on = False
         self._current_reading_number = 0
@@ -126,6 +129,16 @@ class TestReferenceGenerator:
         step = np.floor(t)
         self._current_sample = self.amplitude*(step + 1.0) + self.offset
         self._current_sample = np.clip(self._current_sample, self.amplitude_limit_min, self.amplitude_limit_max)
+        
+    def constant_signal(self, t):
+        self._current_sample = self.amplitude + self.offset
+        self._current_sample = np.clip(self._current_sample, self.amplitude_limit_min, self.amplitude_limit_max)
+
+    def profile_position(self, t):
+        # generate a linear profile from current positon to amplitude over the duration of the signal
+        self._current_sample = self.start_position + self.amplitude*t/self.duration
+        self._current_sample = np.clip(self._current_sample, self.amplitude_limit_min, self.amplitude_limit_max)
+
 
     
     def _mount_signal_generator(self):
@@ -141,6 +154,11 @@ class TestReferenceGenerator:
             self._current_signal_generator = self._smoothstep
         elif self.signal == 'custom':
             self._current_signal_generator = self.custom_signal
+        elif self.signal == 'constant':
+            self._current_signal_generator = self.constant_signal
+        elif self.signal == 'profile_position':
+            self._current_signal_generator = self.profile_position
+            assert self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION, "Profile position signal can only be used in position control mode"
         else:
             rospy.logerr('Signal type not supported')
             raise ValueError('Signal type not supported')
@@ -169,7 +187,7 @@ class TestReferenceGenerator:
         home_msg.targetTorque = 0
         home_msg.operationMode = self.op_mode
         
-        self.command_pub.publish(home_msg)
+        # self.command_pub.publish(home_msg)
         rospy.sleep(0.5)
         
         t_start = time.time()
@@ -186,6 +204,11 @@ class TestReferenceGenerator:
                 break
             elif self._sample_number == self.time_vec.shape[0]:
                 break
+            elif np.abs(self.current_position) > self.position_limit:
+                rospy.logwarn("Current sample exceeds position limit, stopping command publishing")
+                if self.op_mode != MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION:
+                    self.command_pub.publish(home_msg)
+                break
             elif thread_abort:
                 break
             self._update_command_msg()
@@ -194,8 +217,8 @@ class TestReferenceGenerator:
 
         self.publishing_on = False
 
-        if not thread_abort:
-            self.command_pub.publish(home_msg)
+        if not thread_abort and self.op_mode != MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION:
+            self.command_pub.publish(home_msg) # set velocity and torque to 0 at the end of the test
 
         # Plot if required
         print("Final sampling time: ", self._current_time)
@@ -212,6 +235,8 @@ class TestReferenceGenerator:
         
         
     def status_callback(self, msg):
+        if not self.start_position:
+            self.start_position = msg.actualPosition
         if not self.publishing_on:
             return
         if self._current_reading_number == 0:
@@ -223,7 +248,8 @@ class TestReferenceGenerator:
             self._reading_vec.append(msg.actualVelocity)
         elif self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_TORQUE:
             self._reading_vec.append(msg.actualTorque)
-        # self._reading_vec.append(msg.actualPosition)
+
+        self.current_position = msg.actualPosition
         self._reading_times.append(self._current_reading_time)
         self._current_reading_number += 1
     

@@ -1,74 +1,69 @@
 <!-- Launch file to start the test_reference_generator node -->
 <launch>
 <!-- MAXON -->
+<param name="position_limit" value="50000" type="double"/>
+<param name="save_data_path" value="$(find ethercat_ros_configurator)/test_data" type="string"/>
+
     <node name="test_ref_generator_m1" pkg="ethercat_ros_configurator" type="test_reference_generator.py" output="screen">
-        <param name="command_topic" value="/ethercat_master/maxon_test_motor/command" type="string"/>
-        <param name="status_topic" value="/ethercat_master/maxon_test_motor/reading" type="string"/>
-        <param name="signal" value="sine" type="string"/>
-        <param name="name" value="maxon_test" type="string"/>
-        <param name="frequency" value="1" type="double"/>
+        <param name="name" value="maxon_test_bottom" type="string"/>
         <param name="sample_rate" value="100" type="double"/>
+        <param name="duration" value="5.0" type="double"/>
+
+        <param name="command_topic" value="/ethercat_master/Maxon_Motor_bottom/command" type="string"/>
+        <param name="status_topic" value="/ethercat_master/Maxon_Motor_bottom/reading" type="string"/>
+        
+        <param name="op_mode" value="9" type="int"/>
         <param name="amplitude" value="8000" type="double" />
-        <param name="amplitude_limit_min" value="-100000" type="double"/>
-        <param name="amplitude_limit_max" value="100000" type="double"/>
+        
+        <param name="signal" value="sine" type="string"/>
+        <param name="frequency" value="1" type="double"/>
         <param name="offset" value="2000" type="double"/>
         <param name="phase_shift" value="0.0" type="double"/>
-        <param name="duration" value="5.0" type="double"/>
+        
+        <param name="amplitude_limit_min" value="-100000" type="double"/>
+        <param name="amplitude_limit_max" value="100000" type="double"/>
+        
         <param name="plot" value="true" type="bool"/>
         <param name="save_data" value="true" type="bool"/>
-        <param name="save_data_path" value="$(find ethercat_ros_configurator)/test_data" type="string"/>
+    </node>
+
+    <node name="test_ref_generator_m1" pkg="ethercat_ros_configurator" type="test_reference_generator.py" output="screen">
+        <param name="name" value="maxon_test_top" type="string"/>
+        <param name="sample_rate" value="100" type="double"/>
+        <param name="duration" value="5.0" type="double"/>
+
+        <param name="command_topic" value="/ethercat_master/Maxon_Motor_top/command" type="string"/>
+        <param name="status_topic" value="/ethercat_master/Maxon_Motor_top/reading" type="string"/>
+        
         <param name="op_mode" value="9" type="int"/>
+        <param name="amplitude" value="8000" type="double" />
+        
+        <param name="signal" value="sine" type="string"/>
+        <param name="frequency" value="1" type="double"/>
+        <param name="offset" value="2000" type="double"/>
+        <param name="phase_shift" value="0.0" type="double"/>
+        
+        <param name="amplitude_limit_min" value="-100000" type="double"/>
+        <param name="amplitude_limit_max" value="100000" type="double"/>
+        
+        <param name="plot" value="true" type="bool"/>
+        <param name="save_data" value="true" type="bool"/>
     </node>
 
     <!-- ranges -->
     <!-- op_mode: 8 = cyclic synchronous position , 9 = cyclic synchronous velocity , 10 = cyclic synchronous torque -->
-    <!-- position: doesn't matter but 1 revolution is a bit over 100000 -->
-    <!-- velocity: -12000 to 12000 -->
-    <!-- torque (not sure, but this is safe): -100 to 100 -->
+    <!-- position: rail confines [-55296, 55296] set limit to 50k -->
+    <!-- velocity: -15000 to 15000 this is very fast, i'd limit to max 10000 -->
+    <!-- torque (value in promille): not really tested -->
 
-<!-- NANOTEC -->
-    <!-- <node name="test_ref_generator_m1" pkg="ethercat_ros_configurator" type="test_reference_generator.py" output="screen">
-        <param name="command_topic" value="/ethercat_master/Nanotec_Motor_1/command" type="string"/>
-        <param name="status_topic" value="/ethercat_master/Nanotec_Motor_1/reading" type="string"/>
-        Available signal types:
-            1. sine
-            2. sawtooth
-            3. square
-            4. triangle
-            5. smoothstep
-            6. custom
-        <param name="signal" value="sine" type="string"/>
-        <param name="name" value="nanotec_motor1" type="string"/>
-        <param name="frequency" value="1" type="double"/>
-        <param name="sample_rate" value="100" type="double"/>
-        <param name="amplitude" value="1000" type="double" />
-        <param name="amplitude_limit_min" value="200" type="double"/>
-        <param name="amplitude_limit_max" value="3000" type="double"/>
-        <param name="offset" value="1800" type="double"/>
-        <param name="phase_shift" value="0.0" type="double"/>
-        <param name="duration" value="3.0" type="double"/>
-        <param name="plot" value="true" type="bool"/>
-        <param name="plot_dpi" value="400" type="int"/>
-        <param name="save_data" value="true" type="bool"/>
-        <param name="save_data_path" value="$(find ethercat_ros_configurator)/test_data" type="string"/>
-    </node> -->
-
-    <!-- <node name="test_ref_generator_m2" pkg="ethercat_ros_configurator" type="test_reference_generator.py" output="screen">
-        <param name="command_topic" value="/ethercat_master/Nanotec_Motor_2/command" type="string"/>
-        <param name="status_topic" value="/ethercat_master/Nanotec_Motor_2/reading" type="string"/>
-        <param name="signal" value="sawtooth" type="string"/>
-        <param name="name" value="nanotec_motor2" type="string"/>
-        <param name="frequency" value="1" type="double"/>
-        <param name="sample_rate" value="100" type="double"/>
-        <param name="amplitude" value="1000" type="double" />
-        <param name="amplitude_limit_min" value="200" type="double"/>
-        <param name="amplitude_limit_max" value="3000" type="double"/>
-        <param name="offset" value="1800" type="double"/>
-        <param name="phase_shift" value="0.0" type="double"/>
-        <param name="duration" value="3.0" type="double"/>
-        <param name="plot" value="true" type="bool"/>
-        <param name="plot_dpi" value="400" type="int"/>
-        <param name="save_data" value="true" type="bool"/>
-        <param name="save_data_path" value="$(find ethercat_ros_configurator)/test_data" type="string"/>
-    </node> -->
+    <!-- Signals:
+        sine
+        square
+        triangle
+        sawtooth
+        smoothstep
+        custom
+        constant
+        profile_position
+     -->
 </launch>
