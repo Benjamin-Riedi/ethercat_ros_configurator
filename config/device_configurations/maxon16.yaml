@@ -20,8 +20,8 @@ Reading:
 Hardware:
   mode_of_operation:
   - CyclicSynchronousPositionMode
-  # - CyclicSynchronousTorqueMode
-  # - CyclicSynchronousVelocityMode
+  - CyclicSynchronousTorqueMode
+  - CyclicSynchronousVelocityMode
   position_encoder_resolution: 4096 # [counts/rev]
   gear_ratio: [1, 1] # Absolute Reduction in Datasheet, should be positive and less than 2^32 - 1
   motor_constant: 1.0 # Not being used anywhere in SDK from my observation
@@ -29,23 +29,25 @@ Hardware:
   pole_pairs: 2 # Number of pole pairs
   speed_constant: 740 # [rpm/V]
   torque_constant: 0.0129 # [Nm/A], max value is 10,000,000
-  max_current: 2.06 # [A] set to stall current (24.5) or below?
+  max_current: 6 # [A] 2-3x nominal current
   nominal_current: 2.01 # [A]
   min_position: 0
   max_position: 0 # Disable checks, software position limits, can be b/w -(2^31 - 1) to (2^31 - 1)
+
+  max_motor_speed: 15000 # [rpm]
   
-  max_profile_velocity: 50 # [rad/s], max value is 224.883 rad/s. Check EPOS4 firmware ref.
+  max_profile_velocity: 2000 # [rad/s]
   quick_stop_decel: 10000 # [rpm/s], max value bounded by max_acceleration (which defaults to 4'294'967'295)
   profile_decel: 10000 # [rpm/s] , max value bounded by max_acceleration (which defaults to 4'294'967'295)
-  follow_error_window: 20000 # [inc]
+  follow_error_window: 8192 # [inc] 2 revolutions
 
-  current_p_gain: 3.262434 # [V/A]
-  current_i_gain: 17.884582 # [mV/(A*s)]
-  position_p_gain: 3.452142 # [A/rad]
-  position_i_gain: 32.994732 # [A/(rad*s)]
-  position_d_gain: 0.021841 # [(A*s)/rad]
-  velocity_p_gain: 0.091629 # [(A*s)/rad]
-  velocity_i_gain: 6.573788 # [A/rad]
+  current_p_gain: 1.139992 # [V/A]
+  current_i_gain: 8230.973 # [V/(A*s)]
+  position_p_gain: 0.852113 # [A/rad]
+  position_i_gain: 35.693222 # [A/(rad*s)]
+  position_d_gain: 0.006712 # [(A*s)/rad]
+  velocity_p_gain: 0.004499 # [(A*s)/rad]
+  velocity_i_gain: 0.283420 # [A/rad]
 
   motor_type: 10 # Changes certain value ranges. For eg: max_motor_speed
   # Allowed values for motor type: (check EPOS4 firmware ref)
