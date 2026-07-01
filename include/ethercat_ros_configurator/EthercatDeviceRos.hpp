@@ -69,6 +69,16 @@ struct EthercatSlaveEntry
     int8_t initial_mode_of_operation = 0; // Mode "NA" in most drivers
 };
 
+inline std::string getCommandTopicName(const EthercatSlaveEntry& device_info)
+{
+    return device_info.name + "/command";
+}
+
+inline std::string getReadingTopicName(const EthercatSlaveEntry& device_info)
+{
+    return device_info.name + "/reading";
+}
+
 class EthercatDeviceRosBase{
     public:
         virtual ~EthercatDeviceRosBase() = default;
@@ -135,12 +145,15 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
             device_info_ = device_info;
             this->createDevice();
 
+            const std::string command_topic = getCommandTopicName(device_info);
+            const std::string reading_topic = getReadingTopicName(device_info);
+
             command_sub_ptr_ = std::make_unique<ros::Subscriber>(
-                nh_ptr_->subscribe<ethercat_motor_msgs::MotorCtrlMessage>(device_info.name + "/command", 1000, &EthercatDeviceRos::commandCallback, this)
+                nh_ptr_->subscribe<ethercat_motor_msgs::MotorCtrlMessage>(command_topic, 1000, &EthercatDeviceRos::commandCallback, this)
                 );
             
             reading_pub_ptr_ = std::make_unique<ros::Publisher>(
-                nh_ptr_->advertise<ethercat_motor_msgs::MotorStatusMessage>(device_info.name + "/reading", 1000)
+                nh_ptr_->advertise<ethercat_motor_msgs::MotorStatusMessage>(reading_topic, 1000)
                 );
             
             last_command_msg_ptr_ = std::make_unique<ethercat_motor_msgs::MotorCtrlMessage>();

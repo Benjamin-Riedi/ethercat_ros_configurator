@@ -1,10 +1,17 @@
 <launch>
+    <rosparam command="load" file="$(find pendulum_control)/config/topics.yaml" />
     <node 
         pkg="ethercat_ros_configurator" 
         type="ethercat_ros_node" 
         name="ethercat_ros_node" 
         output="screen"
         args="/home/msrl/tesla_ws/src/ethercat_ros_configurator/config/setup.yaml"        
-        launch-prefix="ethercat_grant">
-    </node>
+        launch-prefix="ethercat_grant"
+    />
+    <node
+        pkg="ethercat_ros_configurator"
+        type="convert_units.py"
+        name="convert_units"
+        output="screen"
+    />
 </launch>

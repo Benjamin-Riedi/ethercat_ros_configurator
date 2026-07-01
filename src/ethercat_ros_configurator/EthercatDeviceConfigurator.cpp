@@ -48,6 +48,24 @@ using namespace EthercatRos;
 
 std::map<EthercatSlaveType, EthercatDeviceFactory::DeviceCreator> *EthercatDeviceFactory::device_constructors_ = nullptr;
 
+namespace {
+
+void setDeviceTopicParams(const std::shared_ptr<ros::NodeHandle>& nh, const EthercatSlaveEntry& entry)
+{
+    const std::string topic_param_root = "/topics/" + entry.name;
+    const std::string command_topic = getCommandTopicName(entry);
+    const std::string reading_topic = getReadingTopicName(entry);
+
+    nh->setParam(topic_param_root + "/command", command_topic);
+    nh->setParam(topic_param_root + "/reading", reading_topic);
+
+    // // Store resolved names as well, useful when namespaces/remapping are involved.
+    // nh->setParam(topic_param_root + "/command_resolved", nh->resolveName(command_topic, false));
+    // nh->setParam(topic_param_root + "/reading_resolved", nh->resolveName(reading_topic, false));
+}
+
+}
+
 static bool path_exists(std::string& path)
 {
     #if __GNUC__ < 8
@@ -247,6 +265,8 @@ void EthercatDeviceConfigurator::setup(bool startup)
     for(auto & entry: m_slave_entries)
     {
         MELO_DEBUG_STREAM("[EthercatDeviceConfigurator] Creating slave: " << entry.name);
+
+        setDeviceTopicParams(m_nh, entry);
 
         std::shared_ptr<EthercatDeviceRosBase> slave_ros = nullptr;
 
