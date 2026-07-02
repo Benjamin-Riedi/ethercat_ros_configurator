@@ -1,6 +1,7 @@
 import rospy
+import numpy as np
 
-from control_utils.msg import ScalarStamped
+from control_utils.msg import VectorStamped
 from ethercat_motor_msgs.msg import MotorCtrlMessage
 from ethercat_motor_msgs.msg import MotorStatusMessage
 
@@ -15,22 +16,15 @@ class ConvertUnitsNode:
         self.bottom_motor_topic = rospy.get_param('/topic/Maxon_Motor_bottom/reading', '/ethercat_master/Maxon_Motor_bottom/reading')
         self.top_motor_topic = rospy.get_param('/topic/Maxon_Motor_top/reading', '/ethercat_master/Maxon_Motor_top/reading')
 
-        self.top_position_topic = rospy.get_param('/topic/position/top', '/top/x')
-        self.top_velocity_topic = rospy.get_param('/topic/velocity/top', '/top/xD')
-
-        self.bottom_position_topic = rospy.get_param('/topic/position/bottom', '/bottom/x')
-        self.bottom_velocity_topic = rospy.get_param('/topic/velocity/bottom', '/bottom/xD')
+        self.bottom_state_topic = rospy.get_param('/topics/Maxon_Motor_bottom/state', '/Maxon_Motor_bottom/state')
+        self.top_state_topic = rospy.get_param('/topics/Maxon_Motor_top/state', '/Maxon_Motor_top/state')
 
     def init_publishers(self):
-        self.pub_x = rospy.Publisher(self.bottom_position_topic, ScalarStamped, queue_size=1)
-        self.pub_y = rospy.Publisher(self.top_position_topic, ScalarStamped, queue_size=1)
-        self.pub_xD = rospy.Publisher(self.bottom_velocity_topic, ScalarStamped, queue_size=1)
-        self.pub_yD = rospy.Publisher(self.top_velocity_topic, ScalarStamped, queue_size=1)
+        self.pub_bottom_state = rospy.Publisher(self.bottom_state_topic, VectorStamped, queue_size=1)
+        self.pub_top_state = rospy.Publisher(self.top_state_topic, VectorStamped, queue_size=1)
 
-        self.x_msg = ScalarStamped()
-        self.y_msg = ScalarStamped()
-        self.xD_msg = ScalarStamped()
-        self.yD_msg = ScalarStamped()
+        self.bottom_state_msg = VectorStamped()
+        self.top_state_msg = VectorStamped()
 
     def init_variables(self):
         self.x = 0.0
@@ -74,22 +68,18 @@ class ConvertUnitsNode:
         self.publish_top()
 
     def publish_bottom(self):
-        self.x_msg.header.stamp = self.time
-        self.x_msg.scalar = self.x
-        self.pub_x.publish(self.x_msg)
+        self.bottom_state_msg.header.stamp = self.time
+        state = np.array([self.x, self.xD])
+        self.bottom_state_msg.vector = state
 
-        self.xD_msg.header.stamp = self.time
-        self.xD_msg.scalar = self.xD
-        self.pub_xD.publish(self.xD_msg)
+        self.pub_bottom_state.publish(self.bottom_state_msg)
 
     def publish_top(self):
-        self.y_msg.header.stamp = self.time
-        self.y_msg.scalar = self.y
-        self.pub_y.publish(self.y_msg)
+        self.top_state_msg.header.stamp = self.time
+        state = np.array([self.y, self.yD])
+        self.top_state_msg.vector = state
 
-        self.yD_msg.header.stamp = self.time
-        self.yD_msg.scalar = self.yD
-        self.pub_yD.publish(self.yD_msg)
+        self.pub_top_state.publish(self.top_state_msg)
 
     def run(self):
         rospy.Subscriber(self.bottom_motor_topic, MotorStatusMessage, self.callback_bottom, queue_size=1)
