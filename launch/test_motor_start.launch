@@ -10,8 +10,14 @@
     />
     <node
         pkg="ethercat_ros_configurator"
-        type="convert_units.py"
-        name="convert_units"
+        type="convert_units_read.py"
+        name="convert_units_read"
+        output="screen"
+    />
+    <node
+        pkg="ethercat_ros_configurator"
+        type="convert_units_write.py"
+        name="convert_units_write"
         output="screen"
     />
 </launch>
