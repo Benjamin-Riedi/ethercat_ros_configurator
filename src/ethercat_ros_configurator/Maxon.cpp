@@ -79,6 +79,34 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
     last_command_msg_ptr_->profileAcceleration = 0;
     last_command_msg_ptr_->profileDeceleration = 0;
 
+    if(!device_enabled_){
+        device_ptr_->setDriveStateViaPdo(maxon::DriveState::OperationEnabled, false);
+        // Small delay to allow the PDO state change flag to be set. Due to the min number
+        // of succesful PDO state readings check taking some time.
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    if (device_ptr_->lastPdoStateChangeSuccessful() &&
+            device_ptr_->getReading().getDriveState() == maxon::DriveState::OperationEnabled)
+    {
+        // homing forget about rx/tx try via sdo. will the statusword be updated in this case?
+        maxon::Command cmd;
+        // maxon::Controlword controlword;
+        // controlword.startHoming();
+        // controlword.getRawControlword();
+        cmd.setModeOfOperation(maxon::ModeOfOperationEnum::HomingMode);
+        lock.lock();
+        cmd.setHomingMethod(configuration_.homingMethod);
+        cmd.setHomingSpeed(configuration_.speedForSwitchSearch, configuration_.speedForZeroSearch);
+        cmd.setHomingAcceleration(configuration_.homingAcceleration);
+        cmd.setHomingOffset(configuration_.homingOffset);
+        cmd.setHomePosition(configuration_.homePosition);
+        cmd.setCurrentThreshold(configuration_.currentThreshold); //mA
+        lock.unlock();
+        device_ptr_->activateHoming(cmd); // i think homing only starts after this function, because i only set the controlword to 0x001F here.
+        // maxon::setControlwordViaSdo(controlword)
+        device_enabled_ = true;
+    }
+
     while(!abrt){
             if(!device_enabled_){
                 device_ptr_->setDriveStateViaPdo(maxon::DriveState::OperationEnabled, false);
