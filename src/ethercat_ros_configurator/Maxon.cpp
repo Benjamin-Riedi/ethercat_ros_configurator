@@ -62,6 +62,7 @@ class MaxonUtils{
 template <>
 void EthercatDeviceRos<maxon::Maxon>::worker(){
     ROS_INFO_STREAM("Maxon '" << device_ptr_->getName() << "': Worker thread started.");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     ros::Rate loop_rate(device_info_.thread_frequency);
     worker_loop_running_ = true;
     std::unique_lock<std::recursive_mutex> lock(*command_msg_mutex_ptr_);
@@ -71,7 +72,7 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
     device_ptr_->getReading(reading);
     last_command_msg_ptr_->targetPosition = reading.getActualPositionRaw();
     last_command_msg_ptr_->targetVelocity = reading.getActualVelocityRaw();
-    last_command_msg_ptr_->targetTorque = reading.getActualCurrentRaw();
+    last_command_msg_ptr_->targetTorque = reading.getActualCurrentRaw(); // this is promille of motor rated torque
     last_command_msg_ptr_->positionOffset = 0;
     last_command_msg_ptr_->velocityOffset = 0;
     last_command_msg_ptr_->torqueOffset = 0;
@@ -79,33 +80,46 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
     last_command_msg_ptr_->profileAcceleration = 0;
     last_command_msg_ptr_->profileDeceleration = 0;
 
-    if(!device_enabled_){
-        device_ptr_->setDriveStateViaPdo(maxon::DriveState::OperationEnabled, false);
-        // Small delay to allow the PDO state change flag to be set. Due to the min number
-        // of succesful PDO state readings check taking some time.
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    ROS_INFO_STREAM("Maxon '" << device_ptr_->getName() << " Starting Homing");
+
+    while(!abrt && !homingAttained){
+        if(!device_enabled_){
+            device_ptr_->setDriveStateViaPdo(maxon::DriveState::OperationEnabled, false);
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        if (device_ptr_->getReading().getDriveState() == maxon::DriveState::OperationEnabled)
+        {
+            maxon::Command cmd;
+
+            cmd.setModeOfOperation(maxon::ModeOfOperationEnum::HomingMode);
+            lock.lock();
+            cmd.setHomingMethod(device_ptr_->configuration_.homingMethod);
+            lock.unlock();
+            device_ptr_->activateHoming(cmd);
+
+            while (!abrt)
+            {
+                ROS_INFO_STREAM("Maxon '" << device_ptr_->getName() << "': " 
+                                << device_ptr_->getReading().getActualPositionRaw() << " " 
+                                << device_ptr_->getReading().getActualCurrent() << " " << std::hex
+                                << device_ptr_->getReading().getRawStatusword());
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                if (device_ptr_->getReading().getRawStatusword() & (1 << 12))
+                {
+                    break;
+                }
+            }
+            ROS_INFO_STREAM("Maxon '" << device_ptr_->getName() << "': Homing completed.");
+            homingAttained = true;
+            device_enabled_ = true;
+        }else {
+            device_enabled_ = false;
+            ROS_WARN_STREAM("Maxon '" << device_ptr_->getName() << "': " << device_ptr_->getReading().getDriveState());
+        }
     }
-    if (device_ptr_->lastPdoStateChangeSuccessful() &&
-            device_ptr_->getReading().getDriveState() == maxon::DriveState::OperationEnabled)
-    {
-        // homing forget about rx/tx try via sdo. will the statusword be updated in this case?
-        maxon::Command cmd;
-        // maxon::Controlword controlword;
-        // controlword.startHoming();
-        // controlword.getRawControlword();
-        cmd.setModeOfOperation(maxon::ModeOfOperationEnum::HomingMode);
-        lock.lock();
-        cmd.setHomingMethod(configuration_.homingMethod);
-        cmd.setHomingSpeed(configuration_.speedForSwitchSearch, configuration_.speedForZeroSearch);
-        cmd.setHomingAcceleration(configuration_.homingAcceleration);
-        cmd.setHomingOffset(configuration_.homingOffset);
-        cmd.setHomePosition(configuration_.homePosition);
-        cmd.setCurrentThreshold(configuration_.currentThreshold); //mA
-        lock.unlock();
-        device_ptr_->activateHoming(cmd); // i think homing only starts after this function, because i only set the controlword to 0x001F here.
-        // maxon::setControlwordViaSdo(controlword)
-        device_enabled_ = true;
-    }
+
 
     while(!abrt){
             if(!device_enabled_){
@@ -123,7 +137,9 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
             reading_msg_.statusword = reading.getRawStatusword();
             reading_msg_.analogInput = reading.getAnalogInputRaw();
             reading_msg_.busVoltage = reading.getBusVoltageRaw();
-            reading_msg_.actualTorque   = reading.getActualCurrent(); // see txPDO defn in maxon's SDK
+            reading_msg_.actualTorque   = reading.getActualTorque(); // see txPDO defn in maxon's SDK. this is in mNm
+            reading_msg_.actualCurrent = reading.getActualCurrent(); // this is in mA
+            // reading_msg_.actualCurrent = reading.getActualCurrentRaw(); // this is in promille of rated torque
             reading_pub_ptr_->publish(reading_msg_);
 
 

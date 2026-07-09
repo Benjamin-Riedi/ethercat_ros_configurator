@@ -132,7 +132,10 @@ target_link_libraries(
   stdc++fs
 )
 
-catkin_install_python(PROGRAMS scripts/test_reference_generator.py
+catkin_install_python(PROGRAMS 
+  scripts/test_reference_generator.py
+  scripts/convert_units_read.py
+  scripts/convert_units_write.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

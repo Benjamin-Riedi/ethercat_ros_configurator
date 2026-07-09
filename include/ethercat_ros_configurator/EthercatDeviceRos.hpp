@@ -305,6 +305,7 @@ class EthercatDeviceRos : public EthercatDeviceRosBase{
         std::unique_ptr<std::recursive_mutex> command_msg_mutex_ptr_; // A unique pointer to mutex for command message callback rw locks.
         ethercat_motor_msgs::MotorStatusMessage reading_msg_; // make this a pointer too?
         bool device_enabled_ = false;
+        bool homingAttained = false;
         volatile std::atomic<bool> abrt = false;
         bool worker_loop_running_ = false;
 
