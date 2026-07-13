@@ -2,6 +2,7 @@ import rospy
 import numpy as np
 
 from control_utils.msg import VectorStamped
+from pendulum_control.msg import ArrayStamped
 from ethercat_motor_msgs.msg import MotorCtrlMessage, MotorStatusMessage
 
 class ConvertUnitsReadNode:
@@ -19,11 +20,11 @@ class ConvertUnitsReadNode:
         self.motor_state_top_topic = rospy.get_param('/topics/Maxon_Motor_top/state', '/Maxon_Motor_top/state')
 
     def init_publishers(self):
-        self.pub_state_bottom = rospy.Publisher(self.motor_state_bottom_topic, VectorStamped, queue_size=1)
-        self.pub_state_top = rospy.Publisher(self.motor_state_top_topic, VectorStamped, queue_size=1)
+        self.pub_state_bottom = rospy.Publisher(self.motor_state_bottom_topic, ArrayStamped, queue_size=1)
+        self.pub_state_top = rospy.Publisher(self.motor_state_top_topic, ArrayStamped, queue_size=1)
 
-        self.state_bottom_msg = VectorStamped()
-        self.state_top_msg = VectorStamped()
+        self.state_bottom_msg = ArrayStamped()
+        self.state_top_msg = ArrayStamped()
 
     def init_variables(self):
         self.x = 0.0
@@ -75,7 +76,7 @@ class ConvertUnitsReadNode:
 
     def publish_top(self):
         self.state_top_msg.header.stamp = self.time
-        state = np.array([self.y, self.yD])
+        state = [self.y, self.yD]
         self.state_top_msg.vector = state
 
         self.pub_state_top.publish(self.state_top_msg)

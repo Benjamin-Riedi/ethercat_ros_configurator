@@ -35,24 +35,24 @@ class ConvertUnitsWriteNode:
         """
         4096 [inc/rev] / 0.005 [m/rev] = 819200 [inc/m]
         """
-        return m * 819200.0
+        return int(m * 819200.0)
 
     def mps_to_rpm(self, mps):
         """
         0.005 [m/rev] / 60 [s/min] = 1/1200 [m/s / rpm]
         """
-        return mps * 1200
+        return int(mps * 1200)
 
 
     def callback_bottom(self, msg):
-        vel_mps = msg.data
+        vel_mps = msg.scalar
         self.time = msg.header.stamp
 
         self.v_sp_bottom = self.mps_to_rpm(vel_mps)
         self.publish_bottom()
     
     def callback_top(self, msg):
-        vel_mps = msg.data
+        vel_mps = msg.scalar
         self.time = msg.header.stamp
 
         self.v_sp_top = self.mps_to_rpm(vel_mps)

@@ -8,7 +8,7 @@
         args="$(find ethercat_ros_configurator)/config/setup.yaml"        
         launch-prefix="ethercat_grant"
     />
-    <!-- <node
+    <node
         pkg="ethercat_ros_configurator"
         type="convert_units_read.py"
         name="convert_units_read"
@@ -19,5 +19,5 @@
         type="convert_units_write.py"
         name="convert_units_write"
         output="screen"
-    /> -->
+    />
 </launch>
