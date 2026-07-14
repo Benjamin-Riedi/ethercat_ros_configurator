@@ -1,5 +1,5 @@
 <launch>
-    <rosparam command="load" file="$(find pendulum_control)/config/topics.yaml" />
+    <rosparam command="load" file="$(find pendulum_control)/config/param_server.yaml" />
     <node 
         pkg="ethercat_ros_configurator" 
         type="ethercat_ros_node" 
@@ -8,16 +8,32 @@
         args="$(find ethercat_ros_configurator)/config/setup.yaml"        
         launch-prefix="ethercat_grant"
     />
-    <node
-        pkg="ethercat_ros_configurator"
-        type="convert_units_read.py"
-        name="convert_units_read"
-        output="screen"
-    />
-    <node
-        pkg="ethercat_ros_configurator"
-        type="convert_units_write.py"
-        name="convert_units_write"
-        output="screen"
-    />
+    <group ns='bottom'>
+        <node
+            pkg="ethercat_ros_configurator"
+            type="convert_units_read.py"
+            name="convert_units_read_bottom"
+            output="screen"
+        />
+        <node
+            pkg="ethercat_ros_configurator"
+            type="convert_units_write.py"
+            name="convert_units_write_bottom"
+            output="screen"
+        />
+    </group>
+    <group ns='top'>
+        <node
+            pkg="ethercat_ros_configurator"
+            type="convert_units_read.py"
+            name="convert_units_read_top"
+            output="screen"
+        />
+        <node
+            pkg="ethercat_ros_configurator"
+            type="convert_units_write.py"
+            name="convert_units_write_top"
+            output="screen"
+        />
+    </group>
 </launch>

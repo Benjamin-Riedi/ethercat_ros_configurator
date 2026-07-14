@@ -8,23 +8,18 @@ from ethercat_motor_msgs.msg import MotorCtrlMessage, MotorStatusMessage
 class ConvertUnitsReadNode:
     def __init__(self):
         rospy.init_node(name='convert_units_read', anonymous=True)
-        self.read_params()
+        self.init_topics()
         self.init_publishers()
         self.init_variables()
-
-    def read_params(self):
-        self.bottom_motor_topic = rospy.get_param('/topic/Maxon_Motor_bottom/reading', '/ethercat_master/Maxon_Motor_bottom/reading')
-        self.top_motor_topic = rospy.get_param('/topic/Maxon_Motor_top/reading', '/ethercat_master/Maxon_Motor_top/reading')
-
-        self.motor_state_bottom_topic = rospy.get_param('/topics/Maxon_Motor_bottom/state', '/Maxon_Motor_bottom/state')
-        self.motor_state_top_topic = rospy.get_param('/topics/Maxon_Motor_top/state', '/Maxon_Motor_top/state')
+    
+    def init_topics(self):
+        self.motor_state_topic = 'Maxon_Motor/state'
+        self.motor_reading_topic = 'Maxon_Motor/reading'
 
     def init_publishers(self):
-        self.pub_state_bottom = rospy.Publisher(self.motor_state_bottom_topic, ArrayStamped, queue_size=1)
-        self.pub_state_top = rospy.Publisher(self.motor_state_top_topic, ArrayStamped, queue_size=1)
+        self.pub_state = rospy.Publisher(self.motor_state_topic, ArrayStamped, queue_size=1)
 
-        self.state_bottom_msg = ArrayStamped()
-        self.state_top_msg = ArrayStamped()
+        self.state_msg = ArrayStamped()
 
     def init_variables(self):
         self.x = 0.0
@@ -47,7 +42,7 @@ class ConvertUnitsReadNode:
         return rpm / 1200
 
 
-    def callback_bottom(self, msg):
+    def callback(self, msg):
         x_inc = msg.actualPosition
         u_rpm = msg.actualVelocity
 
@@ -55,35 +50,17 @@ class ConvertUnitsReadNode:
         self.xD = self.rpm_to_mps(u_rpm)
 
         self.time = msg.header.stamp
-        self.publish_bottom()
-    
-    def callback_top(self, msg):
-        y_inc = msg.actualPosition
-        v_rpm = msg.actualVelocity
+        self.publish()
 
-        self.y = self.inc_to_m(y_inc)
-        self.yD = self.rpm_to_mps(v_rpm)
-
-        self.time = msg.header.stamp
-        self.publish_top()
-
-    def publish_bottom(self):
-        self.state_bottom_msg.header.stamp = self.time
+    def publish(self):
+        self.state_msg.header.stamp = self.time
         state = np.array([self.x, self.xD])
-        self.state_bottom_msg.vector = state
+        self.state_msg.vector = state
 
-        self.pub_state_bottom.publish(self.state_bottom_msg)
-
-    def publish_top(self):
-        self.state_top_msg.header.stamp = self.time
-        state = [self.y, self.yD]
-        self.state_top_msg.vector = state
-
-        self.pub_state_top.publish(self.state_top_msg)
+        self.pub_state.publish(self.state_msg)
 
     def run(self):
-        rospy.Subscriber(self.bottom_motor_topic, MotorStatusMessage, self.callback_bottom, queue_size=1)
-        rospy.Subscriber(self.top_motor_topic, MotorStatusMessage, self.callback_top, queue_size=1)
+        rospy.Subscriber(self.motor_reading_topic, MotorStatusMessage, self.callback, queue_size=1)
 
         rospy.spin()
 

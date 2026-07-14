@@ -218,6 +218,7 @@ class TestReferenceGenerator:
         self.publishing_on = False
 
         if not thread_abort and self.op_mode != MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION:
+            home_msg.operationMode = MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_TORQUE
             self.command_pub.publish(home_msg) # set velocity and torque to 0 at the end of the test
 
         # Plot if required
@@ -231,8 +232,6 @@ class TestReferenceGenerator:
 
         if self.plot:
             self.plot_data()
-        
-        
         
     def status_callback(self, msg):
         if not self.start_position:
@@ -300,25 +299,28 @@ class TestReferenceGenerator:
             mode_str = "Velocity"
         elif self.op_mode == MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_TORQUE:
             mode_str = "Torque"
-        plt.figure()
+
         reading_times = np.array(self._reading_times)
         reading_vec = np.array(self._reading_vec)
-        plt.title(f"{self.signal} in Cyclic Synchronous {mode_str} mode, f={self.frequency}, A={self.amplitude}, fs={self.sample_rate}, offset={self.offset}, phase={self.phase_shift}, duration={self.duration} \
+
+        fig, ax = plt.subplots()
+        fig.suptitle(f"{self.signal} in Cyclic Synchronous {mode_str} mode, f={self.frequency}, A={self.amplitude}, fs={self.sample_rate}, offset={self.offset}, phase={self.phase_shift}, duration={self.duration} \
                   \n amplitude limit: [{self.amplitude_limit_min}, {self.amplitude_limit_max}] \
                   \n command topic: {self.command_topic}")
-        plt.suptitle('Reference Generator Test')
-        plt.plot(self.time_vec, self.signal_vec, label='Command')
-        plt.plot(reading_times, reading_vec, label=f'Reading ({mode_str})')
-        plt.xlabel('Time [s]')
-        plt.ylabel(f'{mode_str} [motor controller units]')
-        plt.legend()
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        fig = plt.gcf()
-        fig.set_size_inches(18.5, 5.5)
+        ax.plot(self.time_vec, self.signal_vec, label='Command')
+        ax.plot(reading_times, reading_vec, label=f'Reading ({mode_str})')
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel(f'{mode_str} [motor controller units]')
+        ax.legend()
+        fig.tight_layout(rect=[0, 0, 1, 0.9])
+        fig.set_size_inches(15, 6)
+
         if self.save_data:
             plt.savefig(self.save_path + f"{self.name}_{self._data_prefix}_plot.png", dpi=self.plot_dpi)
             print(f"Plot saved to {self.save_path + f'{self.name}_{self._data_prefix}_plot.png'}")
+
         plt.show()
+        # plt.suptitle('Reference Generator Test')
 
 if __name__ == '__main__':
     rospy.init_node('test_reference_generator')

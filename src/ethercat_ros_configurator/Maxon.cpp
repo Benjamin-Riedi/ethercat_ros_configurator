@@ -145,12 +145,12 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
             if (std::abs(reading_msg_.actualPosition) >= ros::param::param("/limits/x", 50000)){
                 
                 ROS_ERROR_STREAM("Maxon '" << device_ptr_->getName() << "': Position limit exceeded. Stopping the device.");
-                device_ptr_->setDriveStateViaPdo(maxon::DriveState::FaultReactionActive, false);
+                device_ptr_->setDriveStateViaPdo(maxon::DriveState::QuickStopActive, false);
                 abrt = true;
             } else if (std::abs(reading_msg_.actualVelocity) >= ros::param::param("/limits/dx", 10000)){
 
                 ROS_ERROR_STREAM("Maxon '" << device_ptr_->getName() << "': Velocity limit exceeded. Stopping the device.");
-                device_ptr_->setDriveStateViaPdo(maxon::DriveState::FaultReactionActive, false);
+                device_ptr_->setDriveStateViaPdo(maxon::DriveState::QuickStopActive, false);
                 abrt = true;
             }
             
