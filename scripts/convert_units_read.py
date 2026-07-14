@@ -14,7 +14,7 @@ class ConvertUnitsReadNode:
     
     def init_topics(self):
         self.motor_state_topic = 'Maxon_Motor/state'
-        self.motor_reading_topic = 'Maxon_Motor/reading'
+        self.motor_reading_topic = rospy.get_param('Maxon_Motor/reading')
 
     def init_publishers(self):
         self.pub_state = rospy.Publisher(self.motor_state_topic, ArrayStamped, queue_size=1)

@@ -12,7 +12,7 @@ class ConvertUnitsWriteNode:
         self.init_variables()
     
     def init_topics(self):
-        self.motor_command_topic = 'Maxon_Motor/command'
+        self.motor_command_topic = rospy.get_param('Maxon_Motor/command')
         self.setpoint_topic = 'v_sp'
 
     def init_publishers(self):
