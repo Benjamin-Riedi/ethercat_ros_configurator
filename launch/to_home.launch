@@ -2,36 +2,35 @@
 <launch>
 <!-- MAXON -->
     <group>
-            <param name="duration" value="3.0" type="double"/>
+        <param name="sample_rate" value="100" type="double"/>
+        <param name="duration" value="3.0" type="double"/>
 
-            <param name="op_mode" value="9" type="int"/>
-            <param name="amplitude" value="500" type="double" />
-            <param name="signal" value="sine" type="string"/>
-
-            <param name="sample_rate" value="100" type="double"/>
-            <param name="frequency" value="1" type="double"/>
-            <param name="offset" value="0" type="double"/>
-            <param name="phase_shift" value="0.0" type="double"/>
-
-            <param name="plot" value="true" type="bool"/>
-            <param name="save_data" value="true" type="bool"/>
-            <param name="save_data_path" value="$(find ethercat_ros_configurator)/test_data" type="string"/>
+        <param name="op_mode" value="8" type="int"/>
+        <param name="amplitude" value="0" type="double" />
+        
+        <param name="signal" value="profile_position" type="string"/>
+        <param name="frequency" value="1" type="double"/>
+        <param name="offset" value="0" type="double"/>
+        <param name="phase_shift" value="0.0" type="double"/>
+        
+        <param name="amplitude_limit_min" value="-100000" type="double"/>
+        <param name="amplitude_limit_max" value="100000" type="double"/>
+        <param name="position_limit" value="52000" type="double"/>
+        
+        <param name="plot" value="true" type="bool"/>
+        <param name="save_data" value="false" type="bool"/>
+        <param name="save_data_path" value="$(find ethercat_ros_configurator)/test_data" type="string"/>
 
         <node name="test_ref_generator_bottom" pkg="ethercat_ros_configurator" type="test_reference_generator.py" output="screen">
             <param name="name" value="maxon_test_bottom" type="string"/>
             <param name="command_topic" value="/ethercat_master/Maxon_Motor_bottom/command" type="string"/>
             <param name="status_topic" value="/ethercat_master/Maxon_Motor_bottom/reading" type="string"/>
         </node>
-
         <node name="test_ref_generator_top" pkg="ethercat_ros_configurator" type="test_reference_generator.py" output="screen">
             <param name="name" value="maxon_test_top" type="string"/>
             <param name="command_topic" value="/ethercat_master/Maxon_Motor_top/command" type="string"/>
             <param name="status_topic" value="/ethercat_master/Maxon_Motor_top/reading" type="string"/>
         </node>
-
-            <param name="amplitude_limit_min" value="-100000" type="double"/>
-            <param name="amplitude_limit_max" value="100000" type="double"/>
-            <param name="position_limit" value="52000" type="double"/>
     </group>
 
     <!-- ranges -->

@@ -8,32 +8,4 @@
         args="$(find ethercat_ros_configurator)/config/setup.yaml"        
         launch-prefix="ethercat_grant"
     />
-    <group ns='bottom'>
-        <node
-            pkg="ethercat_ros_configurator"
-            type="convert_units_read.py"
-            name="convert_units_read_bottom"
-            output="screen"
-        />
-        <node
-            pkg="ethercat_ros_configurator"
-            type="convert_units_write.py"
-            name="convert_units_write_bottom"
-            output="screen"
-        />
-    </group>
-    <group ns='top'>
-        <node
-            pkg="ethercat_ros_configurator"
-            type="convert_units_read.py"
-            name="convert_units_read_top"
-            output="screen"
-        />
-        <node
-            pkg="ethercat_ros_configurator"
-            type="convert_units_write.py"
-            name="convert_units_write_top"
-            output="screen"
-        />
-    </group>
 </launch>

@@ -105,7 +105,7 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
                                 << device_ptr_->getReading().getActualPositionRaw() << " " 
                                 << device_ptr_->getReading().getActualCurrent() << " " << std::hex
                                 << device_ptr_->getReading().getRawStatusword());
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 if (device_ptr_->getReading().getRawStatusword() & (1 << 12))
                 {
                     break;

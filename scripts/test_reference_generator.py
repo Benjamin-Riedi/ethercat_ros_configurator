@@ -59,21 +59,21 @@ class TestReferenceGenerator:
         self.command_topic = rospy.get_param('~command_topic')
         self.status_topic = rospy.get_param('~status_topic')
         self.name = rospy.get_param('~name', 'default_name')
-        self.signal = rospy.get_param('~signal', 'sine')
-        self.frequency = rospy.get_param('~frequency', 1.0)
-        self.amplitude = rospy.get_param('~amplitude', 1.0)
-        self.amplitude_limit_min = rospy.get_param('~amplitude_limit_min', -1.0)
-        self.amplitude_limit_max = rospy.get_param('~amplitude_limit_max', 1.0)
-        self.position_limit = rospy.get_param('~position_limit', 10000)
-        self.offset = rospy.get_param('~offset', 0.0)
-        self.phase_shift = rospy.get_param('~phase_shift', 0.0)
-        self.duration = rospy.get_param('~duration', 10.0)
-        self.sample_rate = rospy.get_param('~sample_rate', 100.0)
-        self.plot = rospy.get_param('~plot', True)
-        self.plot_dpi = rospy.get_param('~plot_dpi', 300)
-        self.save_data = rospy.get_param('~save_data', False)
-        self.save_path = rospy.get_param('~save_data_path') + "/"
-        self.op_mode = rospy.get_param('~op_mode', MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION)
+        self.signal = rospy.get_param('signal', 'sine')
+        self.frequency = rospy.get_param('frequency', 1.0)
+        self.amplitude = rospy.get_param('amplitude', 1.0)
+        self.amplitude_limit_min = rospy.get_param('amplitude_limit_min', -1.0)
+        self.amplitude_limit_max = rospy.get_param('amplitude_limit_max', 1.0)
+        self.position_limit = rospy.get_param('position_limit', 10000)
+        self.offset = rospy.get_param('offset', 0.0)
+        self.phase_shift = rospy.get_param('phase_shift', 0.0)
+        self.duration = rospy.get_param('duration', 10.0)
+        self.sample_rate = rospy.get_param('sample_rate', 100.0)
+        self.plot = rospy.get_param('plot', True)
+        self.plot_dpi = rospy.get_param('plot_dpi', 300)
+        self.save_data = rospy.get_param('save_data', False)
+        self.save_path = rospy.get_param('save_data_path') + "/"
+        self.op_mode = rospy.get_param('op_mode', MotorCtrlMessage.MAXON_EPOS4_OPERATION_MODE_CYCLIC_SYNCHRONOUS_POSITION)
         self.command_pub = rospy.Publisher(self.command_topic, MotorCtrlMessage, queue_size=10)
         self.status_sub = rospy.Subscriber(self.status_topic, MotorStatusMessage, self.status_callback)
         self.command_msg = MotorCtrlMessage()
@@ -136,7 +136,8 @@ class TestReferenceGenerator:
 
     def profile_position(self, t):
         # generate a linear profile from current positon to amplitude over the duration of the signal
-        self._current_sample = self.start_position + self.amplitude*t/self.duration
+        difference = self.amplitude - self.start_position
+        self._current_sample = self.start_position + difference*t/self.duration
         self._current_sample = np.clip(self._current_sample, self.amplitude_limit_min, self.amplitude_limit_max)
 
 
@@ -323,7 +324,7 @@ class TestReferenceGenerator:
         # plt.suptitle('Reference Generator Test')
 
 if __name__ == '__main__':
-    rospy.init_node('test_reference_generator')
+    rospy.init_node('test_reference_generator', anonymous=True)
     rospy.on_shutdown(abort_thread)
     reference_generator = TestReferenceGenerator()
     command_thread = threading.Thread(target=reference_generator.publish_command_thread)

@@ -1,5 +1,5 @@
 ethercat_master:
-  time_step:                          0.004 # in seconds
+  time_step:                          0.005 # in seconds
   update_rate_too_low_warn_threshold: 50 # in Hz
   ros_namespace:                      ethercat_master
 
@@ -26,7 +26,7 @@ ethercat_devices:
     ethercat_bus:       eno1
     ethercat_address:   1
     thread_frequency:   100
-    initial_mode_of_operation: 9
+    initial_mode_of_operation: 10
 
   - type:               Maxon
     name:               Maxon_Motor_top
@@ -34,4 +34,12 @@ ethercat_devices:
     ethercat_bus:       eno1
     ethercat_address:   2
     thread_frequency:   100
-    initial_mode_of_operation: 9
+    initial_mode_of_operation: 10
+
+  # - type:               Maxon
+  #   name:               Maxon_Motor_top
+  #   configuration_file: device_configurations/maxon16.yaml
+  #   ethercat_bus:       eno1
+  #   ethercat_address:   1
+  #   thread_frequency:   100
+  #   initial_mode_of_operation: 6

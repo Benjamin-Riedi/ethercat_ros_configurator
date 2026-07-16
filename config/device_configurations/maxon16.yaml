@@ -6,7 +6,7 @@ Maxon:
   drive_state_change_max_timeout: 10000 # microseconds
   min_number_of_successful_target_state_readings: 5
   display_error_codes: true
-  disable_configuration_on_startup: true
+  disable_configuration_on_startup: false
   interpolation_time_period_ms: 1 # in ms. "0" disables demand value interpolation.
   # > 0 enables demand value interpolation. Target Position (and offset), Velocity
   # (and offset) are written cyclically with the interpolation time period.
@@ -18,12 +18,12 @@ Reading:
   fault_storage_capacity: 100
 
 Homing:
-  homing_method: -4
-  homing_speeds: [120, 1] # [rpm]
+  homing_method: -3
+  homing_speeds: [240, 1] # [rpm]
   homing_acceleration: 1000 # [rpm/s]
-  homing_offset: 0 # [inc]
+  homing_offset: 55296 # [inc]
   home_position: 0 # [inc]
-  current_threshold: 30 # [mA]
+  current_threshold: 1500 # [mA]
 
 Hardware:
   mode_of_operation:
@@ -50,13 +50,23 @@ Hardware:
   profile_decel: 10000 # [rpm/s] , max value bounded by max_acceleration (which defaults to 4'294'967'295)
   follow_error_window: 8192 # [inc] 2 revolutions
 
-  current_p_gain: 1.139992 # [V/A]
-  current_i_gain: 8230.973 # [V/(A*s)]
-  position_p_gain: 0.852113 # [A/rad]
-  position_i_gain: 35.693222 # [A/(rad*s)]
-  position_d_gain: 0.006712 # [(A*s)/rad]
-  velocity_p_gain: 0.004499 # [(A*s)/rad]
-  velocity_i_gain: 0.283420 # [A/rad]
+  # current_p_gain: 1.139992 # [V/A]
+  # current_i_gain: 8230.973 # [V/(A*s)]
+  # position_p_gain: 0.852113 # [A/rad]
+  # position_i_gain: 35.693222 # [A/(rad*s)]
+  # position_d_gain: 0.006712 # [(A*s)/rad]
+  velocity_p_gain: 0.03 # [(A*s)/rad]
+  velocity_i_gain: 1.7 # [A/rad]
+
+
+  # tuned on epos studio on top motor attached to system
+  current_p_gain: 1.111171 # [V/A]
+  current_i_gain: 8333.075 # [V/(A*s)]
+  position_p_gain: 2.918727 # [A/rad]
+  position_i_gain: 122.259345 # [A/(rad*s)]
+  position_d_gain: 0.020530 # [(A*s)/rad]
+  # velocity_p_gain: 0.013736 # [(A*s)/rad]
+  # velocity_i_gain: 0.865347 # [A/rad]
 
   motor_type: 10 # Changes certain value ranges. For eg: max_motor_speed
   # Allowed values for motor type: (check EPOS4 firmware ref)
