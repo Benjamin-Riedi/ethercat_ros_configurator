@@ -59,6 +59,10 @@ class MaxonUtils{
         }
 };
 
+int32_t clamp(int32_t n, int32_t lower, int32_t upper) {
+    return n <= lower ? lower : n >= upper ? upper : n;
+}
+
 template <>
 void EthercatDeviceRos<maxon::Maxon>::worker(){
     ROS_INFO_STREAM("Maxon '" << device_ptr_->getName() << "': Worker thread started.");
@@ -101,11 +105,11 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
 
             while (!abrt)
             {
-                ROS_INFO_STREAM("Maxon '" << device_ptr_->getName() << "': " 
-                                << device_ptr_->getReading().getActualPositionRaw() << " " 
-                                << device_ptr_->getReading().getActualCurrent() << " " << std::hex
-                                << device_ptr_->getReading().getRawStatusword());
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                // ROS_INFO_STREAM("Maxon '" << device_ptr_->getName() << "': " 
+                //                 << device_ptr_->getReading().getActualPositionRaw() << " " 
+                //                 << device_ptr_->getReading().getActualCurrent() << " " << std::hex
+                //                 << device_ptr_->getReading().getRawStatusword());
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 if (device_ptr_->getReading().getRawStatusword() & (1 << 12))
                 {
                     break;
@@ -169,13 +173,25 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
 
                 maxon::Command cmd;
                 cmd.setModeOfOperation(MaxonUtils::getModeOfOperation(last_command_msg_ptr_->operationMode));
+                if (std::abs(last_command_msg_ptr_->targetVelocity) >= ros::param::param("/limits/dx", 10000)){
+                    ROS_WARN_STREAM("Maxon '" << device_ptr_->getName() << "': Velocity limit exceeded (" << last_command_msg_ptr_->targetVelocity << "rpm). Clipping Velocity.");
+                }
+                int32_t vel = clamp(last_command_msg_ptr_->targetVelocity, -ros::param::param("/limits/dx", 10000), ros::param::param("/limits/dx", 10000));
+                
                 lock.lock();
                 cmd.setTargetPositionRaw(last_command_msg_ptr_->targetPosition);
-                cmd.setTargetVelocityRaw(last_command_msg_ptr_->targetVelocity);
+                cmd.setTargetVelocityRaw(vel);
                 cmd.setTargetTorqueRaw(last_command_msg_ptr_->targetTorque);
                 cmd.setPositionOffsetRaw(last_command_msg_ptr_->positionOffset);
                 cmd.setTorqueOffsetRaw(last_command_msg_ptr_->torqueOffset);
                 cmd.setVelocityOffsetRaw(last_command_msg_ptr_->velocityOffset);
+                if (std::abs(cmd.getTargetVelocityRaw()) > ros::param::param("/limits/dx", 10000)){
+
+                    ROS_ERROR_STREAM("Maxon '" << device_ptr_->getName() << "': Velocity limit exceeded. Stopping the device.");
+                    device_ptr_->setDriveStateViaPdo(maxon::DriveState::QuickStopActive, false);
+                    abrt = true;
+                    break;
+                }
                 lock.unlock();
                 device_ptr_->stageCommand(cmd);
 
