@@ -19,7 +19,7 @@ Reading:
 
 Homing:
   homing_method: -3
-  homing_speeds: [240, 1] # [rpm]
+  homing_speeds: [480, 1] # [rpm]
   homing_acceleration: 1000 # [rpm/s]
   homing_offset: 55296 # [inc]
   home_position: 0 # [inc]

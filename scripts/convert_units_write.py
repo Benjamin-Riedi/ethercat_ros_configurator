@@ -31,9 +31,9 @@ class ConvertUnitsWriteNode:
 
     def mps_to_rpm(self, mps):
         """
-        0.005 [m/rev] / 60 [s/min] = 1/1200 [m/s / rpm]
+        0.005 [m/rev] / 60 [s/min] = 1/12000 [m/s / rpm]
         """
-        return int(mps * 1200)
+        return int(mps * 12000)
 
 
     def callback(self, msg):
