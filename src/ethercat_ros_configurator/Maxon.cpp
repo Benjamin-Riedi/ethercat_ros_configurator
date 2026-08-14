@@ -126,85 +126,87 @@ void EthercatDeviceRos<maxon::Maxon>::worker(){
 
 
     while(!abrt){
-            if(!device_enabled_){
-                device_ptr_->setDriveStateViaPdo(maxon::DriveState::OperationEnabled, false);
-                // Small delay to allow the PDO state change flag to be set. Due to the min number
-                // of succesful PDO state readings check taking some time.
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        if(!device_enabled_){
+            device_ptr_->setDriveStateViaPdo(maxon::DriveState::OperationEnabled, false);
+            // Small delay to allow the PDO state change flag to be set. Due to the min number
+            // of succesful PDO state readings check taking some time.
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        maxon::Reading reading;
+        device_ptr_->getReading(reading);
+        reading_msg_.header.stamp = ros::Time::now();
+        reading_msg_.actualPosition = reading.getActualPositionRaw();
+        reading_msg_.actualVelocity = reading.getActualVelocityRaw();
+        reading_msg_.statusword = reading.getRawStatusword();
+        reading_msg_.analogInput = reading.getAnalogInputRaw();
+        reading_msg_.busVoltage = reading.getBusVoltageRaw();
+        reading_msg_.actualTorque   = reading.getActualTorque(); // see txPDO defn in maxon's SDK. this is in mNm
+        reading_msg_.actualCurrent = reading.getActualCurrent(); // this is in mA
+        // reading_msg_.actualCurrent = reading.getActualCurrentRaw(); // this is in promille of rated torque
+        reading_pub_ptr_->publish(reading_msg_);
+
+        if (std::abs(reading_msg_.actualPosition) >= ros::param::param("/limits/x", 50000)){
+            
+            ROS_ERROR_STREAM("Maxon '" << device_ptr_->getName() << "': Position limit exceeded. Stopping the device.");
+            device_ptr_->setDriveStateViaPdo(maxon::DriveState::QuickStopActive, true);
+            abrt = true;
+            break;
+        } else if (std::abs(reading_msg_.actualVelocity) >= ros::param::param("/limits/dx", 10000)){
+
+            ROS_ERROR_STREAM("Maxon '" << device_ptr_->getName() << "': Velocity limit exceeded. Stopping the device.");
+            device_ptr_->setDriveStateViaPdo(maxon::DriveState::QuickStopActive, true);
+            abrt = true;
+            break;
+        }
+        
+
+
+        // set commands if we can
+        if (device_ptr_->lastPdoStateChangeSuccessful() &&
+                device_ptr_->getReading().getDriveState() == maxon::DriveState::OperationEnabled)
+        {
+            // @todo: make mode of operation configurable : Add to last_command_msg_ptr_ smartly
+            // Maybe a map of int to OpModes in different device classes.
+
+            // Initially a pointer to command was maintained, but was removed for uneccessary
+            // template specializations. This should have a slight allocation overhead but compiler
+            // optimizations should reduce it a bit.
+
+            maxon::Command cmd;
+            cmd.setModeOfOperation(MaxonUtils::getModeOfOperation(last_command_msg_ptr_->operationMode));
+            if (std::abs(last_command_msg_ptr_->targetVelocity) >= ros::param::param("/limits/dx", 10000)){
+                ROS_WARN_STREAM("Maxon '" << device_ptr_->getName() << "': Velocity limit exceeded (" << last_command_msg_ptr_->targetVelocity << "rpm). Clipping Velocity.");
             }
-
-            maxon::Reading reading;
-            device_ptr_->getReading(reading);
-            reading_msg_.header.stamp = ros::Time::now();
-            reading_msg_.actualPosition = reading.getActualPositionRaw();
-            reading_msg_.actualVelocity = reading.getActualVelocityRaw();
-            reading_msg_.statusword = reading.getRawStatusword();
-            reading_msg_.analogInput = reading.getAnalogInputRaw();
-            reading_msg_.busVoltage = reading.getBusVoltageRaw();
-            reading_msg_.actualTorque   = reading.getActualTorque(); // see txPDO defn in maxon's SDK. this is in mNm
-            reading_msg_.actualCurrent = reading.getActualCurrent(); // this is in mA
-            // reading_msg_.actualCurrent = reading.getActualCurrentRaw(); // this is in promille of rated torque
-            reading_pub_ptr_->publish(reading_msg_);
-
-            if (std::abs(reading_msg_.actualPosition) >= ros::param::param("/limits/x", 50000)){
-                
-                ROS_ERROR_STREAM("Maxon '" << device_ptr_->getName() << "': Position limit exceeded. Stopping the device.");
-                device_ptr_->setDriveStateViaPdo(maxon::DriveState::QuickStopActive, true);
-                abrt = true;
-            } else if (std::abs(reading_msg_.actualVelocity) >= ros::param::param("/limits/dx", 10000)){
+            int32_t vel = clamp(last_command_msg_ptr_->targetVelocity, -ros::param::param("/limits/dx", 10000), ros::param::param("/limits/dx", 10000));
+            
+            lock.lock();
+            cmd.setTargetPositionRaw(last_command_msg_ptr_->targetPosition);
+            cmd.setTargetVelocityRaw(vel);
+            cmd.setTargetTorqueRaw(last_command_msg_ptr_->targetTorque);
+            cmd.setPositionOffsetRaw(last_command_msg_ptr_->positionOffset);
+            cmd.setTorqueOffsetRaw(last_command_msg_ptr_->torqueOffset);
+            cmd.setVelocityOffsetRaw(last_command_msg_ptr_->velocityOffset);
+            if (std::abs(cmd.getTargetVelocityRaw()) > ros::param::param("/limits/dx", 10000)){
 
                 ROS_ERROR_STREAM("Maxon '" << device_ptr_->getName() << "': Velocity limit exceeded. Stopping the device.");
                 device_ptr_->setDriveStateViaPdo(maxon::DriveState::QuickStopActive, true);
                 abrt = true;
+                break;
             }
-            
+            lock.unlock();
+            device_ptr_->stageCommand(cmd);
 
+            device_enabled_ = true;
+        }
+        else
+        {
+            device_enabled_ = false;
+            ROS_WARN_STREAM("Maxon '" << device_ptr_->getName()
+                                                                << "': " << device_ptr_->getReading().getDriveState());
+        }
 
-            // set commands if we can
-            if (device_ptr_->lastPdoStateChangeSuccessful() &&
-                    device_ptr_->getReading().getDriveState() == maxon::DriveState::OperationEnabled)
-            {
-                // @todo: make mode of operation configurable : Add to last_command_msg_ptr_ smartly
-                // Maybe a map of int to OpModes in different device classes.
-
-                // Initially a pointer to command was maintained, but was removed for uneccessary
-                // template specializations. This should have a slight allocation overhead but compiler
-                // optimizations should reduce it a bit.
-
-                maxon::Command cmd;
-                cmd.setModeOfOperation(MaxonUtils::getModeOfOperation(last_command_msg_ptr_->operationMode));
-                if (std::abs(last_command_msg_ptr_->targetVelocity) >= ros::param::param("/limits/dx", 10000)){
-                    ROS_WARN_STREAM("Maxon '" << device_ptr_->getName() << "': Velocity limit exceeded (" << last_command_msg_ptr_->targetVelocity << "rpm). Clipping Velocity.");
-                }
-                int32_t vel = clamp(last_command_msg_ptr_->targetVelocity, -ros::param::param("/limits/dx", 10000), ros::param::param("/limits/dx", 10000));
-                
-                lock.lock();
-                cmd.setTargetPositionRaw(last_command_msg_ptr_->targetPosition);
-                cmd.setTargetVelocityRaw(vel);
-                cmd.setTargetTorqueRaw(last_command_msg_ptr_->targetTorque);
-                cmd.setPositionOffsetRaw(last_command_msg_ptr_->positionOffset);
-                cmd.setTorqueOffsetRaw(last_command_msg_ptr_->torqueOffset);
-                cmd.setVelocityOffsetRaw(last_command_msg_ptr_->velocityOffset);
-                if (std::abs(cmd.getTargetVelocityRaw()) > ros::param::param("/limits/dx", 10000)){
-
-                    ROS_ERROR_STREAM("Maxon '" << device_ptr_->getName() << "': Velocity limit exceeded. Stopping the device.");
-                    device_ptr_->setDriveStateViaPdo(maxon::DriveState::QuickStopActive, true);
-                    abrt = true;
-                    break;
-                }
-                lock.unlock();
-                device_ptr_->stageCommand(cmd);
-
-                device_enabled_ = true;
-            }
-            else
-            {
-                device_enabled_ = false;
-                ROS_WARN_STREAM("Maxon '" << device_ptr_->getName()
-                                                                    << "': " << device_ptr_->getReading().getDriveState());
-            }
-
-            loop_rate.sleep();
+        loop_rate.sleep();
     }
     worker_loop_running_ = false;
     return;
